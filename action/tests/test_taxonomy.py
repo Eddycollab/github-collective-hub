@@ -48,6 +48,22 @@ class TaxonomyTest(unittest.TestCase):
         self.assertIn("- mcp-server: ", text)
         self.assertEqual(len(text.splitlines()), 8)
 
+    def test_load_syntax_error_raises_value_error(self):
+        p = self.tmp / "taxonomy.yml"
+        p.write_text("categories: [unterminated\n", encoding="utf-8")
+        with self.assertRaises(ValueError):
+            taxonomy.load(p)
+        p.write_bytes(b"\xff\xfe bad")
+        with self.assertRaises(ValueError):
+            taxonomy.load(p)
+
+    def test_load_or_default_falls_back(self):
+        p = self.tmp / "taxonomy.yml"
+        p.write_text("categories: [unterminated\n", encoding="utf-8")
+        self.assertEqual(taxonomy.load_or_default(p), taxonomy.DEFAULT)
+        p.write_text("categories:\n  - name: alpha\n", encoding="utf-8")
+        self.assertEqual(taxonomy.names(taxonomy.load_or_default(p)), ["alpha"])
+
 
 if __name__ == "__main__":
     unittest.main()

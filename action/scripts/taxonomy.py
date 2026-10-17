@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 import yaml
@@ -23,7 +24,10 @@ DEFAULT: list[dict] = [
 def load(path: Path | None) -> list[dict]:
     if path is None or not Path(path).exists():
         return [dict(c) for c in DEFAULT]
-    data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    try:
+        data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    except (yaml.YAMLError, UnicodeDecodeError, OSError) as e:
+        raise ValueError(f"taxonomy.yml: cannot parse ({e.__class__.__name__})") from e
     raw = data.get("categories") if isinstance(data, dict) else None
     if not isinstance(raw, list) or not raw:
         raise ValueError("taxonomy.yml: 'categories' must be a non-empty list")
@@ -40,6 +44,15 @@ def load(path: Path | None) -> list[dict]:
         definition = item.get("definition") or ""
         cats.append({"name": name, "definition": str(definition)})
     return cats
+
+
+def load_or_default(path: Path | None) -> list[dict]:
+    """The user edits taxonomy.yml by hand; a broken file must not stop the pipeline."""
+    try:
+        return load(path)
+    except ValueError as e:
+        print(f"{e}; using the default categories", file=sys.stderr)
+        return load(None)
 
 
 def names(cats: list[dict]) -> list[str]:

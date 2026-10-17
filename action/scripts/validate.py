@@ -127,7 +127,7 @@ def main(argv: list[str]) -> int:
         print(f"cannot read {args.file}: {e}")
         return 1
     if args.kind == "summary":
-        errors = validate_summary(text, taxonomy.names(taxonomy.load(args.taxonomy)))
+        errors = validate_summary(text, taxonomy.names(taxonomy.load_or_default(args.taxonomy)))
     else:
         errors = validate_svg(text)
     for e in errors:

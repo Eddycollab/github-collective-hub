@@ -254,6 +254,15 @@ class PublishTest(unittest.TestCase):
         self.assertIn("no artifact", rec["error"])
         self.assertEqual(rec["capture"]["url"], "https://github.com/Owner/Repo")
 
+    def test_malformed_taxonomy_falls_back_and_batch_completes(self):
+        (self.repo / "taxonomy.yml").write_text("categories: [unterminated\n", encoding="utf-8")
+        self.inbox("20261018-1", capture())
+        self.leg("20261018-1")
+        res = self.run_publish()
+        self.assertEqual(res["ok"], 1)
+        self.assertTrue((self.repo / "inbox/done/20261018-1.json").exists())
+        self.assertEqual((self.repo / "taxonomy.yml").read_text(), "categories: [unterminated\n")
+
 
 def git(cwd, *args):
     return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True).stdout

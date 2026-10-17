@@ -64,6 +64,13 @@ class PromptTest(unittest.TestCase):
         for limit in ("600", "120", "30"):
             self.assertIn(limit, out)
 
+    def test_analyze_survives_malformed_taxonomy(self):
+        tmp = Path(tempfile.mkdtemp()) / "taxonomy.yml"
+        tmp.write_text("categories: [unterminated\n", encoding="utf-8")
+        code, out, _ = run("analyze", "--full", "a/b", "--target", "/t", "--out", "/o", "--skill", "/s", "--taxonomy", str(tmp))
+        self.assertEqual(code, 0)
+        self.assertIn("- mcp-server: ", out)
+
 
 if __name__ == "__main__":
     unittest.main()

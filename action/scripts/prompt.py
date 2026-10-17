@@ -38,7 +38,7 @@ def main(argv: list[str]) -> int:
     fs.add_argument("--errors", required=True)
     args = ap.parse_args(argv)
     if args.kind == "analyze":
-        cats = taxonomy.load(None if args.taxonomy == "-" else Path(args.taxonomy))
+        cats = taxonomy.load_or_default(None if args.taxonomy == "-" else Path(args.taxonomy))
         text = render(ANALYZE, FULL=args.full, TARGET=args.target, OUT=args.out, SKILL=args.skill,
                       TAXONOMY=taxonomy.render_for_prompt(cats))
     elif args.kind == "fix":

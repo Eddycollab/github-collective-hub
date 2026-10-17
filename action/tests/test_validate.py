@@ -104,6 +104,17 @@ class SvgTest(unittest.TestCase):
         frag = '<rect x="0" y="0" width="1" height="1" fill="none" stroke="#1a1a1a"/><circle cx="1" cy="1" r="1" fill="#FAF8F4"/>'
         self.assertEqual(validate.validate_svg(svg_with(frag)), [])
 
+class CliTest(unittest.TestCase):
+    def test_summary_cli_survives_malformed_taxonomy(self):
+        import subprocess, sys, tempfile
+        from pathlib import Path
+        from _path import SCRIPTS
+        tmp = Path(tempfile.mkdtemp()) / "taxonomy.yml"
+        tmp.write_text("categories: [unterminated\n", encoding="utf-8")
+        p = subprocess.run([sys.executable, str(SCRIPTS / "validate.py"), "summary", str(FIXTURES / "summary_ok.json"),
+                            "--taxonomy", str(tmp)], capture_output=True, text=True)
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -228,11 +228,7 @@ def _load_taxonomy(repo: Path) -> list[dict]:
     path = repo / "taxonomy.yml"
     if not path.exists():
         taxonomy.write_default(path)
-    try:
-        return taxonomy.load(path)
-    except ValueError as e:
-        print(f"publish: {e}; falling back to the default categories", file=sys.stderr)
-        return taxonomy.load(None)
+    return taxonomy.load_or_default(path)
 
 
 def _missing_legs(repo: Path, items: list | None, seen: set) -> list[Leg]:
