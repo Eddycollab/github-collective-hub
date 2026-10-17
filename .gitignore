@@ -34,3 +34,4 @@ __pycache__/
 
 # Windows download marker
 *:Zone.Identifier
+.al
