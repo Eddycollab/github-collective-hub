@@ -30,7 +30,7 @@
  書籤按鈕   ───┼─ GitHub API ─▶ inbox/<id>.json ──push 觸發──▶ ├─ 2. Claude Code：clone、DeepWiki、
  貼上連結   ───┘   (寫一個檔)                                  │      摘要分類、arch-blueprint 畫圖
                                 library/*.md + *.svg ◀────────┴─ 3. 腳本：驗證、寫入、更新目錄、commit
-                                README.md（自動目錄）
+                                README.md（自動目錄）、index.json
                                         │
                      GitHub 網頁 / GitHub App / Obsidian / VS Code 閱讀
 ```
@@ -38,9 +38,9 @@
 | 元件 | 放哪裡 | 職責 |
 |---|---|---|
 | 收藏網頁 | 公開 repo `repobox` 的 GitHub Pages（各人用自己 fork 的那份） | Android 分享目標、貼上連結、書籤落地頁 |
-| 分析 Action | 公開 repo `repobox`，跑在使用者的 Actions | 處理 inbox、寫回 library |
-| 收藏 repo | 使用者的 GitHub（私人），空 repo 加一個 workflow 檔 | 資料本體 |
-| arch-blueprint | 公開 repo `cholateio/arch-blueprint`，Action 以 plugin 安裝 | 畫架構圖 |
+| 分析 Action | 公開 repo `repobox` 的 reusable workflow（`.github/workflows/analyze.yml`）與 `action/` 腳本，跑在使用者的 Actions | 處理 inbox、寫回 library |
+| 收藏 repo | 使用者的 GitHub（私人），空 repo 加一個約 20 行的 stub workflow，以 commit SHA 引用分析 Action | 資料本體 |
+| arch-blueprint | 公開 repo `cholateio/arch-blueprint`，Action 釘 commit 後 `git fetch` 下來，設成唯讀 | 畫架構圖 |
 
 開發者只維護 `repobox` 一個公開 repo（網頁加 Action），不另設 template repo。token 只存在使用者自己網頁的瀏覽器本地。
 
@@ -49,9 +49,9 @@
 ## 安裝
 
 0. **（別人才需要）** fork `repobox`，在 Settings → Pages 開啟。
-1. **建立收藏 repo：** 建一個空的私人 repo，再按收藏網頁設定頁產生的預填「新增檔案」連結，commit workflow 檔。`taxonomy.yml`、`README.md` 等其他檔案由 Action 第一次執行時自動建立。
+1. **建立收藏 repo：** 建一個空的私人 repo，commit stub workflow `.github/workflows/repobox.yml`（內容見 `repobox` 的 README；`uses:` 必須是 40 字元 commit SHA，不能是分支名）。`taxonomy.yml`、`README.md`、`index.json` 由第一次 publish 自動建立。
 2. **連結 Claude 訂閱：** 本機執行 `claude setup-token`，把結果存成 repo secret `CLAUDE_CODE_OAUTH_TOKEN`。
-   沒有訂閱的人改存 `ANTHROPIC_API_KEY`（官方 Action 兩者都支援）。
+   v1 只接訂閱 token；API key 等有人需要再接。
 3. **連結裝置：** 產生一支 fine-grained token（只限這個 repo、Contents 讀寫），在每台裝置的收藏網頁貼上一次。
    - Android：加到主畫面，之後就會出現在分享選單。
    - 電腦：把網頁上的「收藏」按鈕拖到書籤列（整個書籤列只會有這一個）。
@@ -83,7 +83,8 @@ repobox-library/
 ├─ inbox/
 │   ├─ <id>.json             待處理
 │   ├─ done/<id>.json        已處理
-│   └─ failed/<id>.json      失敗（含錯誤原因）；移回 inbox/ 即重試
+│   └─ failed/<id>.json      失敗：{error, failed_at, capture, raw}；把 capture 存回 inbox/<id>.json 即重試
+├─ index.json                Action 產生的機器可讀目錄（閱讀頁、搜尋的資料源）
 ├─ library/
 │   ├─ owner__repo.md        一個 repo 一篇
 │   └─ owner__repo.svg       架構圖
@@ -111,23 +112,30 @@ url: https://github.com/Owner/Repo
 description: ...
 language: TypeScript
 stars: 294
-category: agent-runtime
+license: MIT
+category: mcp-server
 tags: [mcp, chatgpt]
+stack: [TypeScript, Node.js]
 sightings:
-  - { at: 2026-10-17T10:22:33+08:00, source: threads, note: "" }
-analyzed_at: 2026-10-17T10:24:01+08:00
+  - { id: 20261017-102233-a1b2, at: 2026-10-17T10:22:33+08:00, source: threads, note: "" }
+analyzed_at: 2026-10-17T10:24:01+00:00
+analysis: { model: claude-opus-5-5, turns: 21, wall_s: 217, rounds: 0, deepwiki: false, diagram: true }
 ---
 <!-- repobox:auto:start -->
 ## 摘要
+## 值得借鏡
+## 技術棧
 ## 架構圖
-![](owner__repo.svg)
+![architecture](owner__repo.svg)
 <!-- repobox:auto:end -->
 
 ## 我的筆記
 ```
 
-- 去重以 `repo_id` 為準，repo 改名或轉移也不會變成兩篇。
-- Action 只改 frontmatter 與 auto 標記之間的內容；標記之外屬於使用者，永不碰。
+- 去重以 `repo_id` 為準，repo 改名或轉移也不會變成兩篇（沿用舊檔名，只更新 frontmatter 的 `repo`、`url`）。
+- sighting 以 `id`（收藏檔名）為身分，重跑同一批不會重複追加。
+- Action 只改 frontmatter 與 auto 標記之間的內容；第一個 end 標記之後屬於使用者，逐 byte 保留。
+- 來自模型或 GitHub metadata 的文字一律轉成純文字並跳脫 Markdown；裸網址與 email 包成 code span，不會變成可點的連結。
 - 同一個 repo 再收一次：只追加一筆 `sightings` 並更新星數，不重畫圖。重新分析靠 `workflow_dispatch`。
 - 內文只用標準 Markdown，不用 `[[wikilink]]` 等 Obsidian 專屬語法。
 
@@ -135,35 +143,42 @@ analyzed_at: 2026-10-17T10:24:01+08:00
 
 ### 觸發
 
-- `push` 到 `inbox/*.json`（不含 `done/`、`failed/`）。
-- `workflow_dispatch`：手動重跑，可指定 repo 重新分析。
-- `concurrency` 讓同時只有一個執行。Action 用 `GITHUB_TOKEN` 推回的 commit 不會再觸發 workflow。
+- `push` 到 `inbox/*.json`（不含 `done/`、`failed/`）。每次處理 inbox 裡**全部**待處理檔（處理完會搬走，所以重跑是冪等的，中途失敗也會由下一次補上）；一次最多 200 筆，其餘留給下一次。
+- `workflow_dispatch`：帶 `url` = 只強制重新分析這一個 repo（不加 sighting、不動 inbox）；`url` 留空 = 手動清空 inbox。
+- `concurrency` 讓同時只有一個執行；每個 job 都 checkout 分支最新狀態（不是觸發的 commit），排隊中的執行才看得到前一次的結果。Action 用 `GITHUB_TOKEN` 推回的 commit 不會再觸發 workflow。
 
 ### 步驟（每筆收藏各自捕捉錯誤，一筆失敗不影響其他筆）
 
-1. **解析與查詢（腳本）：** 解析 `owner/repo`，呼叫 GitHub API 取得正式名稱、`repo_id`、metadata（自動跟隨改名轉址）。查不到就移到 `failed/`。已經收過的，追加 sighting 後結束。
+1. **解析與查詢（腳本）：** 驗證收藏檔（`v`、網址、`captured_at`），呼叫 GitHub API 取得正式名稱、`repo_id`、metadata（自動跟隨改名轉址），只收公開 repo。以 `repo_id` 找既有條目；已經收過的（且不是強制重分析）只記 sighting，不跑 Claude。任何失敗都寫成 `failed` 狀態，交給寫回 job 搬到 `failed/`。
 2. **分析（Claude Code，用訂閱）：**
    - 由腳本先對目標 repo 做淺層 clone。Claude 不自己發網路請求，DeepWiki MCP 除外。
    - 參考資料：clone 下來的程式碼、README，以及 DeepWiki MCP（`https://mcp.deepwiki.com/mcp`，免費、免登入、只支援公開 repo）。DeepWiki 是選用的，查不到照樣跑。
-   - 輸出 `out/summary.json`（3–5 句摘要、從 `taxonomy.yml` 選一個 `category`、最多 5 個 `tags`），以及 `out/diagram.svg`（用 arch-blueprint 無人值守模式產生）。
-3. **驗證與寫回（腳本）：**
-   - `summary.json` 用 schema 驗證，`category` 必須在 taxonomy 之內。
-   - SVG 必須通過 arch-blueprint 的 `check.py`；不通過就省略架構圖，其他照寫。
-   - 摘要去除 HTML；frontmatter 用 YAML 序列化器產生，不用字串拼接。
-   - 寫入 `library/`、把收藏移到 `done/`、重產 `README.md`，整批一個 commit。push 遇到衝突（手機或 Obsidian 同時在寫）就 rebase 後重試。
+   - 輸出 `out/summary.json`：`summary`（20–600 字、含中文）、`category`（taxonomy 之一）、`tags`（≤5，小寫）、`stack`（1–8 項）、`highlights`（2–3 句、每句 10–120 字、含中文）。限制寫在提示詞裡。
+   - 輸出 `out/diagram.svg`：照 arch-blueprint 畫，提示詞要求跳過確認步、改為檢查每個節點都對應到實際路徑。
+   - 修正迴圈：Claude 沒有 shell。summary 不合格 → 把驗證錯誤交回同一個對話（`--resume`）修一次；`check.py` 不過 → 把錯誤交回修，最多 2 輪。
+3. **驗證與寫回（腳本，獨立 job）：**
+   - 分析 job 先驗一次：`out/` 只能有那兩個檔；summary 過 schema；SVG 過 `check.py` 與元素／屬性白名單，不過就省略架構圖、其他照寫。
+   - 寫回 job **不信任** artifact，全部重驗：id 格式、路徑必須在 `library/` 內、`status.repo_id == meta.id`、既有條目的 `repo_id` 必須相符、summary 與 SVG 再驗一次。任何一項不過 → 該筆降級為失敗，不影響同批其他筆。收藏內容一律從 repo 自己的 `inbox/<id>.json` 讀，不從 artifact 讀。
+   - 同一批有多筆指向同一個 repo：以 `repo_id` 分組，挑有圖的分析結果，sighting 全部合併。
+   - 寫入 `library/`、把收藏移到 `done/`／`failed/`、重產 `README.md` 與 `index.json`，整批一個 commit。push 遇到衝突就 rebase 後重試，最多 3 次。
+   - 有任何一筆失敗，整個執行標成紅燈（GitHub 會寄通知），但其他筆照常寫入。
 
 ### 分析 job 的權限隔離
 
 Claude 讀的是陌生 repo 的內容，要當成可能含有 prompt injection 的不可信資料：
 
-- 分析與寫回分成兩個 job。分析 job 的 `GITHUB_TOKEN` 只有 `contents: read`，產出用 artifact 交給寫回 job，寫回 job 不跑 Claude。
-- 限制靠 CLI 參數強制，不靠提示詞（Phase 0 在本機實際攻擊驗證過）：
-  - Claude 在空的工作資料夾啟動，並使用 `--restricted`：不讀任何設定檔，檔案工具只能碰 `--add-dir` 列出的資料夾。
+- 分析與寫回分成兩個 job。分析 job 的 `GITHUB_TOKEN` 只有 `contents: read`，產出用 artifact 交給寫回 job，寫回 job 不跑 Claude，而且重驗所有 artifact（見步驟 3）。
+- 私人 repo 的 stub 以 **40 字元 commit SHA** 引用 reusable workflow：它把寫入權與 Claude token 交給公開 repo 的程式碼，用分支名等於讓任何推上公開 main 的 commit 在私人 repo 裡執行。更新分析 Action = 推上 `repobox` main 後，到收藏 repo 手動改這個 SHA。
+- 限制靠 CLI 參數強制，不靠提示詞：
+  - Claude 在空的工作資料夾啟動，並使用 `--restricted`：不讀任何設定檔，檔案工具只能碰 `--add-dir` 列出的資料夾（目標 repo、arch-blueprint、`out/`）。
   - 啟動前刪除目標 repo 每一層的 `.claude/`、`.mcp.json`、`CLAUDE.md`、`CLAUDE.local.md` 和 `.git`。
-  - `--permission-mode dontAsk`，白名單外的動作一律拒絕。只准寫入 `out/`（`Edit(//out/**)`）、只准執行固定那一條 `check.py` 指令、加上 DeepWiki MCP。另外禁止讀取 `/proc`。
-  - `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1`（需要 bubblewrap），子程序拿不到 token。
+  - `--tools Read Glob Grep Write Edit`：**沒有 Bash**。`--permission-mode dontAsk`，白名單外一律拒絕；只准寫入 `out/`（`Edit(//out/**)`，它同時放行該路徑的 Write）、加上 DeepWiki MCP；禁止讀取 `/proc`。
+  - `out/` 啟動時是空的、只放模型輸出；流程控制檔（item、meta、status、run 紀錄）放在 Claude 看不到的 `stage/`，上傳的是 `stage/`（2026-10-18 以正式參數本機演練：讀寫 `stage/` 都被拒）。
+  - 不再使用 `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB`／bubblewrap：沒有 Bash 就沒有子程序可以拿到 token；而且 GitHub runner 的 AppArmor 擋下 bwrap（`bwrap: setting up uid map: Permission denied`，2026-10-17 實測），Bash 沙箱根本起不來。
   - arch-blueprint 釘在指定 commit 並設成唯讀；Claude Code 與 GitHub Actions 都釘版本。
   - 不做 headless Chrome 截圖檢查。
+- SVG 用 XML 解析後的元素／屬性白名單驗證（沒有 `style`、`script`、`foreignObject`、`image`、`a`），`fill`／`stroke`／`marker-*` 只接受精確文法（色碼或 `url(#id)`），拒絕任何反斜線跳脫與控制字元。
+- 每一步都保證留下 `status.json`（腳本失敗、逾時、取消也一樣），寫回 job 另外把「有計畫卻沒有 artifact」的項目判為失敗，避免同一筆無限重試。
 - 提示詞明確標示：repo 內容是資料，不是指令。
 
 ### AI 執行器
@@ -177,17 +192,11 @@ Claude 讀的是陌生 repo 的內容，要當成可能含有 prompt injection �
 
 ### 發佈
 
-`repobox` 以 composite action 或 reusable workflow 發佈（實作時決定），使用者的 workflow 引用 `@v1`。腳本建議用 TypeScript，與收藏網頁共用 GitHub 網址解析程式碼。
+`repobox` 以 reusable workflow 發佈（`.github/workflows/analyze.yml`），使用者的 stub 以 commit SHA 引用。腳本用 Python 3 標準函式庫加 PyYAML（runner 預裝、與 `check.py` 同語言、零安裝），放在 `action/scripts/`，單元測試在 `action/tests/`（`python3 -m unittest discover -s action/tests`）。網址解析不與網頁共用：Action 端只需要 regex 加 GitHub API。
 
-## 前置改動：arch-blueprint 無人值守化
+## arch-blueprint：不改，靠提示詞無人值守
 
-在 `cholateio/arch-blueprint` 拿掉「提案後等使用者確認」這一步，改成：
-
-- 提案之後直接畫圖。
-- 新增自我檢查取代人工確認：圖上每個節點都要對應到 repo 裡實際存在的路徑或模組，對不上的刪掉。
-- `check.py` 驗證流程保留。
-
-這會同時改變互動使用時的行為（不再停下來確認），是刻意的取捨。
+原計畫要改 arch-blueprint 拿掉確認步。實測（Phase 0 兩次、Phase 1 多次）在提示詞裡交代「跳過確認、改為檢查節點都對應到實際路徑」就足夠，而且 arch-blueprint 平常也在本機互動使用，不值得為 CI 改變它的行為。決定不改。
 
 ## 已知限制
 
@@ -199,7 +208,7 @@ Claude 讀的是陌生 repo 的內容，要當成可能含有 prompt injection �
 | 項目 | 誰的資源 | 備註 |
 |---|---|---|
 | 收藏 repo | 使用者 | 私人 repo 免費 |
-| Actions | 使用者 | 私人 repo 有免費分鐘數；每筆分析的實際分鐘數在 Phase 0 量測 |
+| Actions | 使用者 | 私人 repo 免費方案每月 2000 分鐘。實測每筆新分析 3–9 分鐘（小 repo 約 2.5 分鐘、中型約 8 分鐘），重複收藏不到 1 分鐘 |
 | Claude | 使用者的訂閱 | 與日常使用共用額度 |
 | 收藏網頁 | 各自 fork 的 GitHub Pages | 免費 |
 
@@ -219,23 +228,26 @@ Claude 讀的是陌生 repo 的內容，要當成可能含有 prompt injection �
 
 ### Phase 1：MVP
 
-- [ ] arch-blueprint 無人值守化
-- [ ] workflow 範本，以及 Action 首次執行時自動建立 `taxonomy.yml`、`README.md`
-- [ ] 分析 Action：三個步驟、權限隔離、README 目錄產生
-- [ ] 收藏網頁：設定、分享目標、貼上連結、書籤
-- [ ] README：三步安裝、隱私說明、支援範圍
+- [x] 分析結果寫回 `library/`（條目、架構圖、README 目錄、`index.json`），收藏搬到 `done/`／`failed/`（2026-10-18）
+- [x] 重複收藏只記 sighting，不跑 Claude
+- [x] Claude 無 shell，`check.py` 與 summary 驗證由流程代跑、錯誤交回修正
+- [x] 每次分析記錄用了哪些工具（`analysis.deepwiki`、`turns`、`rounds`）
+- [x] 分析 Action 改成 reusable workflow，收藏 repo 只留 stub 並以 commit SHA 引用
+- [x] 收藏網頁：設定、分享目標、貼上連結、書籤（Phase 0 完成）
+- [ ] README：自用安裝步驟、隱私說明
 
 **驗收標準：**
 
-| 指標 | 目標 |
-|---|---|
-| 分享或書籤到「已收」 | 2 秒內 |
-| 收藏到 library 出現條目 | 10 分鐘內（以 Phase 0 實測修正） |
-| 照 README 從零設定 | 三步，不需開發者伺服器 |
-| 開發者伺服器 | 零 |
+| 指標 | 目標 | 實測（2026-10-18） |
+|---|---|---|
+| 分享或書籤到「已收」 | 2 秒內 | 2.0 秒（手機） |
+| 收藏到 library 出現條目 | 10 分鐘內 | 小 repo 2.5 分鐘；中型 repo 約 8 分鐘 |
+| 重複收藏 | 不跑 Claude | 分析 job 7–10 秒 |
+| 開發者伺服器 | 零 | 零 |
 
 ### Phase 2 以後（候選，不排序）
 
+- **閱讀頁：** 收藏網頁加一頁，讀 `index.json` 列出收藏，可搜尋、按分類篩選，點進去看摘要與架構圖（SVG 用 `<img>` 載入，不內嵌）。
 - **Codex 訂閱執行器：** 先驗證 `auth.json` 在 CI 裡刷新後的保存方式，見「AI 執行器」。
 - **Discord 通知：** 處理完一筆就把摘要和架構圖發到頻道（webhook 存成 secret），成本極低。
 - **Discord 收藏入口：** 用過一陣子確定需要再評估。偏向用 Cloudflare Worker 架 Discord 指令（即時、不吃 Actions 分鐘數）；不採用 Actions 定時讀頻道（不即時，而且吃分鐘數）。
@@ -250,4 +262,4 @@ Claude 讀的是陌生 repo 的內容，要當成可能含有 prompt injection �
 - **正式名稱：** 「RepoBox」是暫名，候選 Snapfork；定名前先確認 GitHub 組織名與網域。
 - **一次分享多個網址：** 分享內容含多個 GitHub 網址時，全部收，還是讓使用者選？
 - **預設分類：** `taxonomy.yml` 預設分類清單的最終版。
-- **重新分析：** 再次收藏時是否要重新分析，例如距離上次分析超過 N 天、或 repo 有大改版的時候？
+- ~~**重新分析：**~~ 已決（2026-10-18）：再收不重跑，只記 sighting；要重跑就用 `workflow_dispatch` 指定網址。
