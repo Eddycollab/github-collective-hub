@@ -191,7 +191,7 @@ Claude 讀的是陌生 repo 的內容，要當成可能含有 prompt injection �
 
 ## 已知限制
 
-- **token 存放網域：** token 存在網頁的 localStorage。如果網頁架在 `<帳號>.github.io`，同帳號的其他 Pages 專案共用同一個 origin，都讀得到它。建議用自訂子網域隔開。
+- **token 存放網域：** token 存在網頁的 localStorage。如果網頁架在 `<帳號>.github.io`，同帳號的其他 Pages 專案共用同一個 origin，都讀得到它。建議用自訂子網域隔開（本人部署用 `repobox.cholate.dev`）。
 - **分享可能遺失：** 交接資料一讀就刪。送出成功前 App 被關掉或重新整理，這筆分享就會遺失。這是不做離線佇列的代價，屬刻意取捨。
 
 ## 成本
@@ -208,13 +208,13 @@ Claude 讀的是陌生 repo 的內容，要當成可能含有 prompt injection �
 ### Phase 0：驗證假設
 
 - [x] Android：Threads 內建瀏覽器的 `⋯` →「分享方式…」會叫出系統分享選單，帶的是完整、乾淨的 GitHub 網址（2026-10-17 實機確認）
-- [ ] Android：RepoBox PWA 安裝後會出現在這個分享選單裡，並收到同一個網址
+- [x] Android：RepoBox PWA 安裝後會出現在這個分享選單裡，並收到同一個網址（2026-10-17 實機：網址放在 `text` 欄位，API 1.4 秒，從開啟到寫入 2.0 秒）
 - [ ] Android：X 內建瀏覽器同樣測一次
-- [ ] `claude-code-action` 搭配 `CLAUDE_CODE_OAUTH_TOKEN`，在 `push` 觸發下用自訂 prompt 跑得起來，並能從 marketplace 安裝 arch-blueprint
-- [ ] arch-blueprint 無人值守模式在 Actions 的 ubuntu runner 上產出通過 `check.py` 的 SVG
-- [ ] 量測每筆分析花的 Actions 分鐘數與牆鐘時間
-- [ ] 從 GitHub Pages 用 fine-grained token 呼叫 Contents API，沒有 CORS 問題（2026-10-17：curl 模擬預檢通過，回傳 `allow-origin: *`，`PUT` 與 `Authorization` 都允許；待手機實測）
-- [ ] bubblewrap 在 GitHub runner 上能讓 `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` 正常運作
+- [ ] Claude Code CLI 搭配 `CLAUDE_CODE_OAUTH_TOKEN` 在 runner 上跑得起來（2026-10-17：`workflow_dispatch` 通過；待驗證：手機分享後由 `push` 自動觸發並跑完）
+- [x] arch-blueprint 無人值守模式在 Actions 的 ubuntu runner 上產出通過 `check.py` 的 SVG（2026-10-17，SquirrelRay/LiveSummary：0 錯誤 0 警告）
+- [x] 量測每筆分析花的 Actions 分鐘數與牆鐘時間（2026-10-17，一個小型 Python repo：Claude 409 秒、job 7 分 16 秒、21 turns，API 等價成本 US$1.72，由訂閱額度支付）
+- [x] 從 GitHub Pages 用 fine-grained token 呼叫 Contents API，沒有 CORS 問題（2026-10-17 手機實測通過）
+- [x] bubblewrap 在 GitHub runner 上能讓 `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` 正常運作（2026-10-17；開了 scrub 後 CLI 會把 permission mode 強制改成 default，但在 `-p` 下非白名單工具一樣被拒，實測擋下一次 `find`/`cat`）
 - [ ] GitHub 新增檔案頁面可以用網址參數預填檔名與內容（`?filename=...&value=...`）；不行就改成 README 附一段 workflow 讓人複製
 
 ### Phase 1：MVP
