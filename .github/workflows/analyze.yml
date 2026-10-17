@@ -271,3 +271,56 @@ jobs:
           name: repobox-out-${{ matrix.item.id }}
           path: ${{ runner.temp }}/stage
           if-no-files-found: error
+
+  # The only job with write access. It never runs Claude and re-validates every artifact.
+  publish:
+    needs: [plan, analyze]
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.items != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Locate pipeline scripts
+        env:
+          WF_REPO: ${{ job.workflow_repository }}
+          WF_SHA: ${{ job.workflow_sha }}
+        run: |
+          echo "workflow: ${WF_REPO:-<empty>}@${WF_SHA:-<empty>}"
+          [ -n "$WF_REPO" ] && [ -n "$WF_SHA" ] || { echo "::error::job.workflow_repository/sha empty"; exit 1; }
+          echo "REPOBOX=$RUNNER_TEMP/repobox" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/artifacts"
+
+      # Scripts are checked out outside the library worktree so they can never be committed.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .repobox-publish
+          sparse-checkout: action
+          persist-credentials: false
+
+      - name: Move scripts out of the worktree
+        run: mv "$GITHUB_WORKSPACE/.repobox-publish" "$REPOBOX"
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: repobox-out-*
+          path: ${{ runner.temp }}/artifacts
+
+      - name: Publish to library
+        run: |
+          set -euo pipefail
+          python3 "$REPOBOX/action/scripts/publish.py" --artifacts "$RUNNER_TEMP/artifacts" --repo "$GITHUB_WORKSPACE" --push \
+            | tee "$RUNNER_TEMP/publish.json"
+          jq -r '"## publish\n- analyzed: \(.ok)  sightings only: \(.dedup)  failed: \(.failed) \(.failed_ids | join(", "))"' \
+            "$RUNNER_TEMP/publish.json" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail the run if any item failed
+        run: |
+          failed=$(jq .failed "$RUNNER_TEMP/publish.json")
+          [ "$failed" = 0 ] || { echo "::error::$failed item(s) moved to inbox/failed/"; exit 1; }
