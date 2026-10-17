@@ -7,32 +7,54 @@ const RESERVED_OWNERS = new Set([
   'organizations', 'pricing', 'pulls', 'search', 'security', 'settings', 'site', 'sponsors',
   'topics', 'trending',
 ]);
-const REPO_RE = /(?:https?:\/\/)?(?:www\.)?github\.com\/([A-Za-z0-9][A-Za-z0-9-]{0,38})\/([A-Za-z0-9._-]+)/g;
+const OWNER_RE = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/;
+const REPO_SEG_RE = /^[A-Za-z0-9._-]+/;
+const GITHUB_HOSTS = new Set(['github.com', 'www.github.com']);
+// Only these link wrappers are unwrapped; any other host carrying a GitHub URL in its
+// query (e.g. evil.example/?next=github.com/a/b) is rejected.
+const WRAPPERS = new Map([
+  ['l.threads.com', 'u'], ['l.threads.net', 'u'], ['l.facebook.com', 'u'], ['l.instagram.com', 'u'],
+]);
+// Bare (scheme-less) candidates must not follow URL characters, so a path or query segment
+// like evil.example/github.com/a/b never starts a candidate.
+const CANDIDATE_RE = /https?:\/\/[^\s<>"'()]+|(?<![\w.@\/:?=&%-])(?:www\.)?github\.com\/[^\s<>"'()]+/gi;
 
 const $ = (id) => document.getElementById(id);
 
-// Wrapped links (l.threads.com/?u=..., t.co landing pages) carry the target URL-encoded,
-// so decode before matching.
+function repoFromUrl(candidate, depth = 0) {
+  let url;
+  try { url = new URL(/^https?:\/\//i.test(candidate) ? candidate : `https://${candidate}`); } catch { return null; }
+  const host = url.hostname.toLowerCase();
+  if (GITHUB_HOSTS.has(host)) {
+    if (url.username || url.password) return null;
+    const [owner = '', repoSeg = ''] = url.pathname.split('/').slice(1);
+    if (!OWNER_RE.test(owner) || RESERVED_OWNERS.has(owner.toLowerCase())) return null;
+    const m = repoSeg.match(REPO_SEG_RE);
+    const repo = m ? m[0].replace(/\.+$/, '').replace(/\.git$/i, '') : '';
+    if (!repo) return null;
+    return { owner, repo, url: `https://github.com/${owner}/${repo}` };
+  }
+  const param = WRAPPERS.get(host);
+  if (param && depth < 2) {
+    const target = url.searchParams.get(param);
+    if (target) return repoFromUrl(target, depth + 1);
+  }
+  return null;
+}
+
 function findGitHubRepo(...texts) {
   for (const raw of texts) {
     if (!raw) continue;
-    let s = raw;
-    for (let i = 0; i < 2; i++) {
-      try { const d = decodeURIComponent(s); if (d === s) break; s = d; } catch { break; }
-    }
-    for (const m of s.matchAll(REPO_RE)) {
-      const owner = m[1];
-      const repo = m[2].replace(/\.+$/, '').replace(/\.git$/, '');
-      if (!repo || RESERVED_OWNERS.has(owner.toLowerCase())) continue;
-      return { owner, repo, url: `https://github.com/${owner}/${repo}` };
+    for (const m of raw.matchAll(CANDIDATE_RE)) {
+      const hit = repoFromUrl(m[0]);
+      if (hit) return hit;
     }
   }
   return null;
 }
 
-function detectSource(ref) {
-  let host = '';
-  try { host = new URL(ref).hostname; } catch { return ''; }
+function detectSource(host) {
+  if (!host) return '';
   if (/(^|\.)threads\.(com|net)$/.test(host)) return 'threads';
   if (/(^|\.)(x|twitter)\.com$|^t\.co$/.test(host)) return 'x';
   if (/(^|\.)youtube\.com$|^youtu\.be$/.test(host)) return 'youtube';
@@ -126,8 +148,11 @@ function showRetry(hit, ctx) {
 function init() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
-  const cfg = loadCfg();
+  let cfg = loadCfg();
   if (cfg) { $('repo').value = cfg.repo || ''; $('token').value = cfg.token ? '********' : ''; }
+  const base = location.origin + location.pathname;
+  renderBookmarklet(base, cfg);
+
   $('settings').onsubmit = (e) => {
     e.preventDefault();
     const repo = $('repo').value.trim();
@@ -135,9 +160,12 @@ function init() {
     if (!/^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/.test(repo)) { setStatus('repo 格式應為 owner/name', 'err'); return; }
     const token = tokenInput === '********' ? (cfg && cfg.token) : tokenInput;
     if (!token) { setStatus('請貼上 token', 'err'); return; }
-    if (saveCfg({ repo, token })) setStatus('設定已儲存', 'ok');
-    else setStatus('無法儲存（瀏覽器封鎖了本地儲存）', 'err');
+    const next = { repo, token, nonce: (cfg && cfg.nonce) || randomHex(16) };
+    if (!saveCfg(next)) { setStatus('無法儲存（瀏覽器封鎖了本地儲存）', 'err'); return; }
+    cfg = next;
+    setStatus('設定已儲存', 'ok');
     $('token').value = '********';
+    renderBookmarklet(base, cfg);
   };
 
   $('add').onsubmit = (e) => {
@@ -147,19 +175,70 @@ function init() {
     submit(hit, { source: 'manual' });
   };
 
-  const base = location.origin + location.pathname;
-  $('bookmarklet').href = "javascript:void(window.open('" + base +
-    "?url='+encodeURIComponent(location.href)+'&ref='+encodeURIComponent(document.referrer)," +
-    "'repobox','width=420,height=360'))";
+  handleIncoming(base, cfg);
+}
 
-  const p = new URLSearchParams(location.search);
-  const shared = { title: p.get('title'), text: p.get('text'), url: p.get('url'), ref: p.get('ref') };
-  if (!shared.title && !shared.text && !shared.url) return;
-  history.replaceState(null, '', base);
+// Auto-write only when provenance is proven; everything else needs an explicit tap.
+// - Share sheet: manifest POST -> service worker stores a single-use handoff -> #s=<id>,
+//   accepted only inside the installed app window. A crafted link can only GET, so it
+//   cannot mint a handoff id.
+// - Bookmarklet: #k=<nonce>; the bookmarklet runs only on github.com, so no other page
+//   ever sees the nonce.
+// - Plain ?url= / #url= links: always confirm.
+async function handleIncoming(base, cfg) {
+  const q = new URLSearchParams(location.search);
+  const h = new URLSearchParams(location.hash.slice(1));
+  let shared = null;
+  let trusted = false;
+  if (h.has('s')) {
+    // A cross-site form can also POST to ./share, but it lands in a browser tab;
+    // only the OS share sheet delivers a POST into the installed app window.
+    shared = await takeHandoff(h.get('s'));
+    trusted = Boolean(shared) && matchMedia('(display-mode: standalone)').matches;
+  } else if (h.has('url')) {
+    shared = { url: h.get('url'), ref: h.get('ref') };
+    trusted = Boolean(cfg && cfg.nonce && h.get('k') === cfg.nonce);
+  } else if (q.has('url') || q.has('text') || q.has('title')) {
+    shared = { title: q.get('title'), text: q.get('text'), url: q.get('url') };
+  }
+  if (location.search || location.hash) history.replaceState(null, '', base);
+  if (!shared) return;
   $('received').textContent = JSON.stringify(shared, null, 2);
   const hit = findGitHubRepo(shared.url, shared.text, shared.title);
   if (!hit) { setStatus('分享內容裡沒找到 GitHub repo 網址', 'err'); return; }
-  submit(hit, { source: detectSource(shared.ref || '') });
+  const ctx = { source: detectSource(shared.ref || '') };
+  if (trusted) { submit(hit, ctx); return; }
+  setStatus(`要收下 ${hit.owner}/${hit.repo} 嗎？`);
+  const btn = document.createElement('button');
+  btn.textContent = '確認收藏';
+  btn.onclick = () => { btn.remove(); submit(hit, ctx); };
+  $('status').after(btn);
 }
 
+// Coupled with sw.js: same cache name and key path; the entry is deleted on first read.
+async function takeHandoff(id) {
+  if (!/^[0-9a-f-]{36}$/.test(id || '') || !('caches' in self)) return null;
+  try {
+    const cache = await caches.open('repobox-handoff');
+    const key = new URL(`handoff/${id}`, location.href).href;
+    const res = await cache.match(key);
+    if (!res) return null;
+    await cache.delete(key);
+    return await res.json();
+  } catch { return null; }
+}
+
+function randomHex(bytes) {
+  return Array.from(crypto.getRandomValues(new Uint8Array(bytes)), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function renderBookmarklet(base, cfg) {
+  const el = $('bookmarklet');
+  if (!cfg || !cfg.nonce) { el.removeAttribute('href'); el.textContent = '（先儲存設定）'; return; }
+  el.textContent = '收進 RepoBox';
+  el.href = "javascript:(function(){if(location.hostname!=='github.com'){alert('RepoBox: open a GitHub repo page first');return}" +
+    "var r='';try{r=new URL(document.referrer).hostname}catch(e){}" +
+    "window.open('" + base + "#k=" + cfg.nonce + "&url='+encodeURIComponent(location.href)+'&ref='+encodeURIComponent(r)," +
+    "'_blank','width=420,height=360')})()";
+}
 init();

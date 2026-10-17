@@ -62,8 +62,12 @@
 
 一個靜態網頁，同時是 Android 分享目標、電腦的貼上頁和書籤的落地頁。只做「收」，不做分析。
 
-- **Android 分享：** Web App Manifest 宣告 `share_target`（GET，參數 `title`、`text`、`url`）。很多 App 把網址放在 `text`，所以從三個欄位中抽出第一個 GitHub 網址。
-- **書籤：** `javascript:` 書籤只做一件事：帶著 `location.href` 與 `document.referrer` 開啟收藏網頁。用的是頁面導覽，不受各網站 CSP 限制。referrer 的網域用來推斷出處（例如來自 `t.co` 就記為 x）。
+- **Android 分享：** Web App Manifest 宣告 `share_target`（POST multipart，參數 `title`、`text`、`url`）。service worker 攔下 POST，把內容存成一次性交接資料，再導向 `#s=<id>`。很多 App 把網址放在 `text`，所以從三個欄位中抽出第一個 GitHub 網址。
+- **書籤：** `javascript:` 書籤只在 `github.com` 上執行。它開新視窗到收藏網頁，把網址、referrer 的網域和本機專屬的隨機碼放在 `#` 片段（不會送到伺服器）。referrer 的網域用來推斷出處（例如來自 `t.co` 就記為 x）。
+- **自動寫入的門檻：** 任何網站都能帶參數導到收藏網頁，所以只有能證明來源的請求才自動寫入，其他一律要按「確認收藏」：
+  - 分享選單：交接資料存在，而且頁面是在已安裝的 App 視窗裡打開。跨站表單 POST 只會開在一般分頁。
+  - 書籤：隨機碼正確。
+- **網址解析：** 用 `URL` 解析，網域必須完全等於 `github.com` 或 `www.github.com`；只拆解白名單內的轉址服務（`l.threads.com` 等），其他網域 query 裡的 GitHub 網址一律不認。
 - **貼上連結：** 任何瀏覽器都能用。從網頁版社群右鍵複製的連結可能是轉址包裝（例如 `l.threads.com/?u=...`），解析時要從 query 參數中解出 GitHub 網址。
 - **送出：** 本地先解析出 `owner/repo` 並驗證是 GitHub repo 網址，再用 Contents API 寫一個 `inbox/<id>.json`。成功就顯示「已收：owner/repo」；失敗就顯示錯誤加一個重試鈕。沒有離線佇列。
 - **設定：** repo 名稱與 token 存在瀏覽器本地；token 不進網址、不進 console。對外只連 `api.github.com`，不載入任何第三方分析程式。
@@ -153,7 +157,13 @@ analyzed_at: 2026-10-17T10:24:01+08:00
 Claude 讀的是陌生 repo 的內容，要當成可能含有 prompt injection 的不可信資料：
 
 - 分析與寫回分成兩個 job。分析 job 的 `GITHUB_TOKEN` 只有 `contents: read`，產出用 artifact 交給寫回 job，寫回 job 不跑 Claude。
-- Claude 的工具白名單：讀檔、寫 `out/`、執行 `check.py` 與 headless Chrome 截圖、DeepWiki MCP。不開放任意 Bash 與網路。
+- 限制靠 CLI 參數強制，不靠提示詞（Phase 0 在本機實際攻擊驗證過）：
+  - Claude 在空的工作資料夾啟動，並使用 `--restricted`：不讀任何設定檔，檔案工具只能碰 `--add-dir` 列出的資料夾。
+  - 啟動前刪除目標 repo 每一層的 `.claude/`、`.mcp.json`、`CLAUDE.md`、`CLAUDE.local.md` 和 `.git`。
+  - `--permission-mode dontAsk`，白名單外的動作一律拒絕。只准寫入 `out/`（`Edit(//out/**)`）、只准執行固定那一條 `check.py` 指令、加上 DeepWiki MCP。另外禁止讀取 `/proc`。
+  - `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1`（需要 bubblewrap），子程序拿不到 token。
+  - arch-blueprint 釘在指定 commit 並設成唯讀；Claude Code 與 GitHub Actions 都釘版本。
+  - 不做 headless Chrome 截圖檢查。
 - 提示詞明確標示：repo 內容是資料，不是指令。
 
 ### AI 執行器
@@ -162,7 +172,7 @@ Claude 讀的是陌生 repo 的內容，要當成可能含有 prompt injection �
 
 | 執行器 | 認證 | 狀態 |
 |---|---|---|
-| Claude Code（`anthropics/claude-code-action`） | `claude setup-token` 產生的訂閱 token；沒有訂閱的人可改用 API key | v1 |
+| Claude Code CLI（runner 上直接 `npm install` 後跑 `claude -p`） | `claude setup-token` 產生的訂閱 token（`CLAUDE_CODE_OAUTH_TOKEN`）；沒有訂閱的人可改用 API key | v1。不用官方 `claude-code-action`：它的觸發事件清單裡沒有 `push`，預設還要安裝 Claude GitHub App |
 | Codex（`openai/codex-action`） | ChatGPT 訂閱：把 `~/.codex/auth.json` 存成 secret。官方文件仍建議自動化流程用 API key，而且 token 會在執行中刷新，必須想辦法讓 secret 跟著更新 | Phase 2，先驗證 |
 
 ### 發佈
@@ -178,6 +188,11 @@ Claude 讀的是陌生 repo 的內容，要當成可能含有 prompt injection �
 - `check.py` 驗證流程保留。
 
 這會同時改變互動使用時的行為（不再停下來確認），是刻意的取捨。
+
+## 已知限制
+
+- **token 存放網域：** token 存在網頁的 localStorage。如果網頁架在 `<帳號>.github.io`，同帳號的其他 Pages 專案共用同一個 origin，都讀得到它。建議用自訂子網域隔開。
+- **分享可能遺失：** 交接資料一讀就刪。送出成功前 App 被關掉或重新整理，這筆分享就會遺失。這是不做離線佇列的代價，屬刻意取捨。
 
 ## 成本
 
@@ -198,7 +213,8 @@ Claude 讀的是陌生 repo 的內容，要當成可能含有 prompt injection �
 - [ ] `claude-code-action` 搭配 `CLAUDE_CODE_OAUTH_TOKEN`，在 `push` 觸發下用自訂 prompt 跑得起來，並能從 marketplace 安裝 arch-blueprint
 - [ ] arch-blueprint 無人值守模式在 Actions 的 ubuntu runner 上產出通過 `check.py` 的 SVG
 - [ ] 量測每筆分析花的 Actions 分鐘數與牆鐘時間
-- [ ] 從 GitHub Pages 用 fine-grained token 呼叫 Contents API，沒有 CORS 問題
+- [ ] 從 GitHub Pages 用 fine-grained token 呼叫 Contents API，沒有 CORS 問題（2026-10-17：curl 模擬預檢通過，回傳 `allow-origin: *`，`PUT` 與 `Authorization` 都允許；待手機實測）
+- [ ] bubblewrap 在 GitHub runner 上能讓 `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` 正常運作
 - [ ] GitHub 新增檔案頁面可以用網址參數預填檔名與內容（`?filename=...&value=...`）；不行就改成 README 附一段 workflow 讓人複製
 
 ### Phase 1：MVP
