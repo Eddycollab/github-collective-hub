@@ -31,3 +31,6 @@ __pycache__/
 # state is excluded.
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+
+# Windows download marker
+*:Zone.Identifier

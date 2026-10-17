@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>RepoBox</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#1a1a1a">
+  <style>
+    :root { --bg: #faf8f4; --ink: #1a1a1a; --mute: #6b6b6b; --ok: #1f7a3a; --err: #b42318; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #141414; --ink: #ece9e2; --mute: #9a9a9a; --ok: #5cc27a; --err: #ff7b6e; } }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink);
+           font: 16px/1.5 system-ui, -apple-system, "Noto Sans TC", sans-serif; max-width: 640px; margin-inline: auto; }
+    h1 { font-size: 20px; margin: 0 0 12px; }
+    h2 { font-size: 15px; margin: 24px 0 8px; color: var(--mute); }
+    #status { font-size: 22px; font-weight: 600; min-height: 1.5em; word-break: break-all; }
+    .ok { color: var(--ok); } .err { color: var(--err); }
+    pre { white-space: pre-wrap; word-break: break-all; font-size: 13px; border: 1px solid var(--mute); padding: 8px; border-radius: 6px; }
+    label { display: block; margin: 8px 0 4px; font-size: 14px; }
+    input { width: 100%; padding: 8px; font: inherit; border: 1px solid var(--mute); border-radius: 6px; background: transparent; color: inherit; }
+    button { margin-top: 8px; padding: 8px 14px; font: inherit; border: 1px solid var(--ink); border-radius: 6px; background: var(--ink); color: var(--bg); }
+    a.bm { display: inline-block; padding: 6px 12px; border: 1px dashed var(--ink); border-radius: 6px; color: inherit; text-decoration: none; }
+    .mute { color: var(--mute); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>RepoBox <span class="mute">phase 0</span></h1>
+  <div id="status"></div>
+  <p id="timing" class="mute"></p>
+
+  <h2>收到的分享內容</h2>
+  <pre id="received">（沒有）</pre>
+
+  <h2>手動送出</h2>
+  <form id="add">
+    <input id="add-url" placeholder="貼上 GitHub 連結" autocomplete="off">
+    <button>送出</button>
+  </form>
+
+  <h2>設定</h2>
+  <form id="settings">
+    <label for="repo">收藏 repo（owner/name）</label>
+    <input id="repo" placeholder="cholateio/repobox-library" autocomplete="off">
+    <label for="token">Fine-grained token（只存在這個瀏覽器）</label>
+    <input id="token" type="password" autocomplete="off">
+    <button>儲存</button>
+  </form>
+
+  <h2>電腦書籤</h2>
+  <p class="mute">把下面這個按鈕拖到書籤列，在 GitHub repo 頁面按一下就收下。</p>
+  <a id="bookmarklet" class="bm" href="#">收進 RepoBox</a>
+
+  <script src="app.js"></script>
+</body>
+</html>
