@@ -210,7 +210,7 @@ Claude 讀的是陌生 repo 的內容，要當成可能含有 prompt injection �
 - [x] Android：Threads 內建瀏覽器的 `⋯` →「分享方式…」會叫出系統分享選單，帶的是完整、乾淨的 GitHub 網址（2026-10-17 實機確認）
 - [x] Android：RepoBox PWA 安裝後會出現在這個分享選單裡，並收到同一個網址（2026-10-17 實機：網址放在 `text` 欄位，API 1.4 秒，從開啟到寫入 2.0 秒）
 - [ ] Android：X 內建瀏覽器同樣測一次
-- [ ] Claude Code CLI 搭配 `CLAUDE_CODE_OAUTH_TOKEN` 在 runner 上跑得起來（2026-10-17：`workflow_dispatch` 通過；待驗證：手機分享後由 `push` 自動觸發並跑完）
+- [x] Claude Code CLI 搭配 `CLAUDE_CODE_OAUTH_TOKEN` 在 runner 上跑得起來（2026-10-17：`workflow_dispatch` 與手機分享後的 `push` 自動觸發都通過；push 只分析新增的那一筆）
 - [x] arch-blueprint 無人值守模式在 Actions 的 ubuntu runner 上產出通過 `check.py` 的 SVG（2026-10-17，SquirrelRay/LiveSummary：0 錯誤 0 警告）
 - [x] 量測每筆分析花的 Actions 分鐘數與牆鐘時間（2026-10-17，一個小型 Python repo：Claude 409 秒、job 7 分 16 秒、21 turns，API 等價成本 US$1.72，由訂閱額度支付）
 - [x] 從 GitHub Pages 用 fine-grained token 呼叫 Contents API，沒有 CORS 問題（2026-10-17 手機實測通過）
