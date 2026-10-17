@@ -26,8 +26,11 @@ jobs:
     outputs:
       items: ${{ steps.list.outputs.items }}
     steps:
+      # Runs are serialized by the caller's concurrency group; checking out the branch tip
+      # (not github.sha) makes a queued run see what the previous run already published.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ github.ref }}
           sparse-checkout: inbox
           persist-credentials: false
 
@@ -89,6 +92,7 @@ jobs:
 
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ github.ref }}
           sparse-checkout: library
           persist-credentials: false
 
@@ -294,6 +298,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ github.ref }}
           fetch-depth: 0
 
       - name: Locate pipeline scripts
