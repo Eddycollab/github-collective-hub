@@ -1,7 +1,8 @@
 """Summarize `claude -p --output-format stream-json --verbose` output into a run record.
 
-CLI: claude_stream.py <stream.jsonl> <out.json>
-Exit 2 when the stream has no result event (the record is still written).
+CLI: claude_stream.py <stream.jsonl> [<fix-round.jsonl> ...] <out.json>
+Streams are concatenated in order (the latest result event wins). Exit 2 when no stream has a
+result event (the record is still written).
 """
 from __future__ import annotations
 
@@ -48,12 +49,16 @@ def summarize(lines: Iterable[str]) -> dict:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 2:
-        print("usage: claude_stream.py <stream.jsonl> <out.json>", file=sys.stderr)
+    if len(argv) < 2:
+        print("usage: claude_stream.py <stream.jsonl> [...] <out.json>", file=sys.stderr)
         return 1
-    src, out = Path(argv[0]), Path(argv[1])
-    lines = src.read_text(encoding="utf-8", errors="replace").splitlines() if src.exists() else []
+    *sources, out = [Path(a) for a in argv]
+    lines: list[str] = []
+    for src in sources:
+        if src.exists():
+            lines += src.read_text(encoding="utf-8", errors="replace").splitlines()
     record = summarize(lines)
+    record["rounds_logged"] = len(sources)
     out.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return 0 if record["result"] is not None else 2
 

@@ -40,6 +40,25 @@ class ClaudeStreamTest(unittest.TestCase):
         self.assertEqual(p.returncode, 2)
         self.assertIsNone(json.loads(out.read_text())["result"])
 
+    def test_cli_merges_multiple_streams(self):
+        out = Path(tempfile.mkdtemp()) / "run.json"
+        ok = str(FIXTURES / "stream_ok.jsonl")
+        p = subprocess.run([sys.executable, str(SCRIPTS / "claude_stream.py"), ok, ok, out.as_posix()])
+        self.assertEqual(p.returncode, 0)
+        rec = json.loads(out.read_text())
+        self.assertEqual(rec["tools"]["by_name"]["Read"], 4)
+        self.assertEqual(rec["tools"]["calls"], 8)
+        self.assertEqual(rec["tools"]["files_read"], 1)
+        self.assertEqual(rec["result"]["session_id"], "sid-1")
+        self.assertEqual(rec["rounds_logged"], 2)
+
+    def test_cli_last_result_wins_even_if_last_stream_lacks_one(self):
+        out = Path(tempfile.mkdtemp()) / "run.json"
+        p = subprocess.run([sys.executable, str(SCRIPTS / "claude_stream.py"), str(FIXTURES / "stream_ok.jsonl"),
+                            str(FIXTURES / "stream_noresult.jsonl"), str(out)])
+        self.assertEqual(p.returncode, 0)
+        self.assertEqual(json.loads(out.read_text())["result"]["session_id"], "sid-1")
+
 
 if __name__ == "__main__":
     unittest.main()
