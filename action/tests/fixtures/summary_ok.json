@@ -1,0 +1,1 @@
+{"summary": "這是一個在本機執行的 MCP 伺服器，讓 ChatGPT 能透過安全通道使用檔案與 Shell 工具。", "category": "mcp-server", "tags": ["mcp", "chatgpt", "typescript"], "stack": ["TypeScript", "Node.js", "React"], "highlights": ["用 server factory 為每個工作階段組合工具集，隔離乾淨。", "把外部 MCP 伺服器聚合成單一入口，並處理 OAuth。"]}
