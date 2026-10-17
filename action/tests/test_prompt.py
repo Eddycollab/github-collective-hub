@@ -50,6 +50,20 @@ class PromptTest(unittest.TestCase):
         _, out, _ = run("fix", "--out", "/o", "--check", str(check))
         self.assertIn("value $OUT and ${TARGET} stay", out)
 
+    def test_fix_summary_contains_errors_and_limits(self):
+        errs = Path(tempfile.mkdtemp()) / "errs.txt"
+        errs.write_text("highlights: 2-3 Chinese sentences of 10-120 chars\n", encoding="utf-8")
+        code, out, _ = run("fix-summary", "--out", "/o", "--errors", str(errs))
+        self.assertEqual(code, 0)
+        self.assertIn("highlights: 2-3 Chinese sentences of 10-120 chars", out)
+        self.assertIn("/o/summary.json", out)
+        self.assertIn("/o/diagram.svg", out)
+
+    def test_analyze_states_length_limits(self):
+        _, out, _ = run("analyze", "--full", "a/b", "--target", "/t", "--out", "/o", "--skill", "/s", "--taxonomy", "-")
+        for limit in ("600", "120", "30"):
+            self.assertIn(limit, out)
+
 
 if __name__ == "__main__":
     unittest.main()

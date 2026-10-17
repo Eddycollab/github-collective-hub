@@ -52,13 +52,15 @@ def _line(e: dict) -> str:
     desc = entry.to_plain(e.get("description") or "")
     if len(desc) > DESC_MAX:
         desc = desc[:DESC_MAX] + "…"
-    parts = [f"- [{e['repo']}]({e['md']})", f"⭐ {int(e['stars'] or 0)}"]
+    stars = e["stars"] if isinstance(e.get("stars"), int) and not isinstance(e.get("stars"), bool) else 0
+    parts = [f"- [{e['repo']}]({e['md']})", f"⭐ {stars}"]
     if e.get("language"):
         parts.append(f"· {entry.safe_text(e['language'])}")
     text = " ".join(parts)
     if desc:
-        text += f" — {entry.md_escape(desc)}"
-    tags = [t for t in e.get("tags") or [] if isinstance(t, str) and TAG_RE.match(t)]
+        text += f" — {entry.safe_text(desc)}"
+    raw_tags = e.get("tags") if isinstance(e.get("tags"), list) else []
+    tags = [t for t in raw_tags if isinstance(t, str) and TAG_RE.match(t)]
     if tags:
         text += " " + " ".join(f"`{t}`" for t in tags)
     return text

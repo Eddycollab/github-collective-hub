@@ -25,38 +25,50 @@ class ItemsTest(unittest.TestCase):
     def test_dispatch_url_single_item_ignores_inbox(self):
         self.put("20261018-1.json", GOOD)
         self.assertEqual(self.collect("https://github.com/x/y"),
-                         [{"id": "dispatch-77", "url": "https://github.com/x/y", "capture": None, "raw": None, "force": True}])
+                         [{"id": "dispatch-77", "url": "https://github.com/x/y", "force": True}])
 
     def test_inbox_items_sorted(self):
         self.put("20261018-2.json", GOOD)
         self.put("20261018-1.json", dict(GOOD, url="https://github.com/c/d"))
         got = self.collect()
         self.assertEqual([i["id"] for i in got], ["20261018-1", "20261018-2"])
-        self.assertEqual(got[0], {"id": "20261018-1", "url": "https://github.com/c/d",
-                                  "capture": dict(GOOD, url="https://github.com/c/d"), "raw": None, "force": False})
+        self.assertEqual(got[0], {"id": "20261018-1", "url": "https://github.com/c/d", "force": False})
 
-    def test_bad_json_yields_error_item_with_raw(self):
+    def test_bad_json_yields_error_item(self):
         self.put("bad.json", "{not json")
         [it] = self.collect()
+        self.assertEqual(set(it), {"id", "url", "force", "error"})
         self.assertIsNone(it["url"])
-        self.assertIsNone(it["capture"])
-        self.assertEqual(it["raw"], "{not json")
         self.assertTrue(it["error"])
 
     def test_json_null_and_array_yield_error_items(self):
         self.put("a.json", "null")
         self.put("b.json", "[1]")
         got = self.collect()
-        self.assertEqual([(i["id"], i["raw"]) for i in got], [("a", "null"), ("b", "[1]")])
+        self.assertEqual([i["id"] for i in got], ["a", "b"])
         self.assertTrue(all(i["error"] for i in got))
 
-    def test_missing_url_yields_error_item_with_capture(self):
-        cap = {k: v for k, v in GOOD.items() if k != "url"}
-        self.put("m.json", cap)
+    def test_missing_url_yields_error_item(self):
+        self.put("m.json", {k: v for k, v in GOOD.items() if k != "url"})
         [it] = self.collect()
-        self.assertEqual(it["capture"], cap)
-        self.assertIsNone(it["raw"])
         self.assertIn("url", it["error"])
+
+    def test_long_url_rejected(self):
+        self.put("l.json", dict(GOOD, url="https://github.com/a/" + "b" * 200))
+        [it] = self.collect()
+        self.assertIn("url", it["error"])
+
+    def test_item_size_independent_of_capture_size(self):
+        self.put("big.json", dict(GOOD, note="x" * 1_000_000))
+        [it] = self.collect()
+        self.assertLess(len(json.dumps(it)), 200)
+
+    def test_items_capped_per_run(self):
+        for n in range(items.MAX_ITEMS + 5):
+            self.put(f"20261018-{n:04d}.json", GOOD)
+        got = self.collect()
+        self.assertEqual(len(got), items.MAX_ITEMS)
+        self.assertEqual(got[-1]["id"], f"20261018-{items.MAX_ITEMS - 1:04d}")
 
     def test_gist_url_yields_error_item(self):
         self.put("g.json", dict(GOOD, url="https://gist.github.com/a/b"))

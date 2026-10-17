@@ -235,11 +235,25 @@ def _load_taxonomy(repo: Path) -> list[dict]:
         return taxonomy.load(None)
 
 
-def run(artifacts: Path, repo: Path, now: str | None = None) -> dict:
+def _missing_legs(repo: Path, items: list | None, seen: set) -> list[Leg]:
+    """Planned items whose leg uploaded nothing (timeout, cancellation) still get filed."""
+    out = []
+    for it in items or []:
+        iid = it.get("id") if isinstance(it, dict) else None
+        if isinstance(iid, str) and ID_RE.match(iid) and iid not in seen:
+            from_inbox, capture, raw = _inbox_source(repo, iid)
+            out.append(Leg(id=iid, status="failed", error="pipeline: no artifact (job timed out or was cancelled)",
+                           from_inbox=from_inbox, capture=capture, raw=raw))
+    return out
+
+
+def run(artifacts: Path, repo: Path, now: str | None = None, items: list | None = None) -> dict:
     now = now or datetime.now(timezone.utc).isoformat(timespec="seconds")
     cats = _load_taxonomy(repo)
     names = taxonomy.names(cats)
-    legs = [load_leg(d, repo, names) for d in sorted(Path(artifacts).iterdir()) if d.is_dir()]
+    dirs = sorted(d for d in Path(artifacts).iterdir() if d.is_dir()) if Path(artifacts).is_dir() else []
+    legs = [load_leg(d, repo, names) for d in dirs]
+    legs += _missing_legs(repo, items, {l.id for l in legs if l.id})
     groups: dict[int, list[Leg]] = {}
     for leg in legs:
         if leg.status in ("ok", "dedup"):
@@ -300,9 +314,18 @@ def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--artifacts", type=Path, required=True)
     ap.add_argument("--repo", type=Path, required=True)
+    ap.add_argument("--items", type=Path, help="the plan job's items JSON")
     ap.add_argument("--push", action="store_true")
     args = ap.parse_args(argv)
-    counts = run(args.artifacts, args.repo)
+    planned = None
+    if args.items:
+        try:
+            planned = json.loads(args.items.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            planned = None
+        if not isinstance(planned, list):
+            planned = None
+    counts = run(args.artifacts, args.repo, items=planned)
     if args.push and commit(args.repo, counts):
         push_with_retry(args.repo)
     print(json.dumps(counts, ensure_ascii=False))

@@ -35,7 +35,15 @@ SVG_ATTRS = {
     "transform", "viewBox", "width", "x", "x1", "x2", "y", "y1", "y2", "dominant-baseline",
     "opacity", "xmlns", "version",
 }
-URL_RE = re.compile(r"url\(\s*([^)]*)\)", re.I)
+INTERNAL_URL = r"url\(#[A-Za-z0-9_-]+\)"
+# Exact grammars: a CSS escape such as "\75 rl(...)" can never match these.
+STRICT = {
+    "marker-start": re.compile(rf"^{INTERNAL_URL}$"),
+    "marker-end": re.compile(rf"^{INTERNAL_URL}$"),
+    "fill": re.compile(rf"^(none|transparent|currentColor|#[0-9A-Fa-f]{{3}}|#[0-9A-Fa-f]{{6}}|#[0-9A-Fa-f]{{8}}|{INTERNAL_URL})$"),
+    "stroke": re.compile(rf"^(none|transparent|currentColor|#[0-9A-Fa-f]{{3}}|#[0-9A-Fa-f]{{6}}|#[0-9A-Fa-f]{{8}}|{INTERNAL_URL})$"),
+}
+CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
 
 def validate_summary(text: str, categories: list[str]) -> list[str]:
@@ -94,14 +102,16 @@ def validate_svg(text: str) -> list[str]:
                 errors.append(f"{tag}@{name}: attribute not allowed")
             elif name not in SVG_ATTRS and not raw_name.startswith("{http://www.w3.org/2000/xmlns/}"):
                 errors.append(f"{tag}@{name}: attribute not allowed")
+            elif "\\" in value or CONTROL.search(value):
+                errors.append(f"{tag}@{name}: escapes and control characters not allowed")
             elif name == "href" and not value.startswith("#"):
                 errors.append(f"{tag}@{name}: only internal #references allowed")
+            elif name in STRICT and not STRICT[name].match(value.strip()):
+                errors.append(f"{tag}@{name}: value {value[:40]!r} not allowed")
+            elif name not in STRICT and "url(" in low:
+                errors.append(f"{tag}@{name}: url() not allowed here")
             elif "javascript:" in low or "data:" in low:
                 errors.append(f"{tag}@{name}: script or data URI not allowed")
-            else:
-                for target in URL_RE.findall(value):
-                    if not target.strip(" '\"").startswith("#"):
-                        errors.append(f"{tag}@{name}: only url(#id) allowed")
     return errors
 
 

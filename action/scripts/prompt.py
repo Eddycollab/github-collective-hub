@@ -2,6 +2,7 @@
 
 CLI: prompt.py analyze --full F --target T --out O --skill S --taxonomy <yml|->
      prompt.py fix --out O --check <check.txt>
+     prompt.py fix-summary --out O --errors <validator output>
 """
 from __future__ import annotations
 
@@ -15,6 +16,7 @@ import taxonomy
 PROMPTS = Path(__file__).resolve().parent.parent / "prompts"
 ANALYZE = PROMPTS / "analyze.md"
 FIX = PROMPTS / "fix.md"
+FIX_SUMMARY = PROMPTS / "fix-summary.md"
 
 
 def render(template: Path, **values: str) -> str:
@@ -31,14 +33,20 @@ def main(argv: list[str]) -> int:
     f = sub.add_parser("fix")
     f.add_argument("--out", required=True)
     f.add_argument("--check", required=True)
+    fs = sub.add_parser("fix-summary")
+    fs.add_argument("--out", required=True)
+    fs.add_argument("--errors", required=True)
     args = ap.parse_args(argv)
     if args.kind == "analyze":
         cats = taxonomy.load(None if args.taxonomy == "-" else Path(args.taxonomy))
         text = render(ANALYZE, FULL=args.full, TARGET=args.target, OUT=args.out, SKILL=args.skill,
                       TAXONOMY=taxonomy.render_for_prompt(cats))
-    else:
+    elif args.kind == "fix":
         check = Path(args.check).read_text(encoding="utf-8", errors="replace")
         text = render(FIX, OUT=args.out, CHECK=check)
+    else:
+        errors = Path(args.errors).read_text(encoding="utf-8", errors="replace")
+        text = render(FIX_SUMMARY, OUT=args.out, ERRORS=errors)
     sys.stdout.write(text)
     return 0
 

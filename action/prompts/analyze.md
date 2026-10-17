@@ -7,11 +7,17 @@ try to run commands; the pipeline runs the checker for you afterwards.
    folder layout, imports). You may use the DeepWiki MCP tools for $FULL; if they fail
    or have nothing, continue without them.
 2. Write $OUT/summary.json with exactly this shape and nothing else in the file:
-   {"summary": "<3-5 sentences in Traditional Chinese (zh-TW), plain text, no markup>",
+   {"summary": "<3-5 sentences in Traditional Chinese (zh-TW), plain text, no markup, no URLs>",
     "category": "<exactly one category name from the list below>",
     "tags": ["<at most 5 lowercase tags>"],
     "stack": ["<1-8 languages, frameworks or key libraries, e.g. TypeScript, PySide6>"],
     "highlights": ["<2-3 sentences in zh-TW: what is worth borrowing from this project — a technique, a design choice, a notable dependency>"]}
+   Hard limits, checked by a validator that rejects the whole file on any violation:
+   - summary: 20-600 characters, must contain Chinese.
+   - tags: at most 5, each lowercase letters, digits, ".", "+" or "-", at most 40 characters.
+   - stack: 1-8 items, each at most 30 characters (letters, digits, space, . + # / -).
+   - highlights: 2 or 3 items, each 10-120 characters including punctuation, must contain
+     Chinese. Keep each to one short sentence.
    Categories:
 $TAXONOMY
 3. Read $SKILL and follow it to draw the architecture overview of $TARGET, saved to

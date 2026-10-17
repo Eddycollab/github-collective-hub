@@ -87,6 +87,23 @@ class SvgTest(unittest.TestCase):
         frag = '<use href="#icon-x"/><path d="M0 0" marker-end="url(#ah)"/>'
         self.assertEqual(validate.validate_svg(svg_with(frag)), [])
 
+    def test_svg_rejects_css_escape_and_strict_paint_grammar(self):
+        bad = [
+            '<path d="M0 0" marker-end="\\75 rl(https://example.com/track.svg#ah)"/>',
+            '<path d="M0 0" marker-end="url(#ah) url(https://e/x)"/>',
+            '<rect x="0" y="0" width="1" height="1" fill="u\\rl(http://e)"/>',
+            '<rect x="0" y="0" width="1" height="1" fill="expression(alert(1))"/>',
+            '<rect x="0" y="0" width="1" height="1" stroke="red;background:url(http://e)"/>',
+            '<text x="0" y="0" font-family="a\x01b">x</text>',
+        ]
+        for frag in bad:
+            with self.subTest(frag=frag):
+                self.assertTrue(validate.validate_svg(svg_with(frag)))
+
+    def test_svg_accepts_palette_paint_values(self):
+        frag = '<rect x="0" y="0" width="1" height="1" fill="none" stroke="#1a1a1a"/><circle cx="1" cy="1" r="1" fill="#FAF8F4"/>'
+        self.assertEqual(validate.validate_svg(svg_with(frag)), [])
+
 
 if __name__ == "__main__":
     unittest.main()

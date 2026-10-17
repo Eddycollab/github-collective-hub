@@ -159,6 +159,7 @@ jobs:
 
       - name: Prepare inputs
         if: steps.lookup.outputs.analyze == 'true'
+        timeout-minutes: 8
         env:
           FULL: ${{ steps.resolve.outputs.full }}
         run: |
@@ -181,6 +182,7 @@ jobs:
       - name: Analyze with Claude
         id: claude
         if: steps.lookup.outputs.analyze == 'true'
+        timeout-minutes: 20
         working-directory: ${{ runner.temp }}/work
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -190,7 +192,8 @@ jobs:
           set +e
           S="$REPOBOX/action/scripts"
           CHECK="$AB/skills/arch-blueprint/scripts/check.py"
-          TAX=-; [ -f "$GITHUB_WORKSPACE/taxonomy.yml" ] && TAX="$GITHUB_WORKSPACE/taxonomy.yml"
+          TAX=-; TAXARG=()
+          if [ -f "$GITHUB_WORKSPACE/taxonomy.yml" ]; then TAX="$GITHUB_WORKSPACE/taxonomy.yml"; TAXARG=(--taxonomy "$TAX"); fi
           cat > "$RUNNER_TEMP/mcp.json" <<'JSON'
           {"mcpServers": {"deepwiki": {"type": "http", "url": "https://mcp.deepwiki.com/mcp"}}}
           JSON
@@ -208,6 +211,11 @@ jobs:
           rc=$?
           python3 "$S/claude_stream.py" "$RUNNER_TEMP"/stream-*.jsonl "$STAGE/run.json"
           SID=$(jq -r '.result.session_id // empty' "$STAGE/run.json")
+          if [ -n "$SID" ] && ! python3 "$S/validate.py" summary "$OUT/summary.json" "${TAXARG[@]}" > "$RUNNER_TEMP/summary-errs.txt"; then
+            FIXS=$(python3 "$S/prompt.py" fix-summary --out "$OUT" --errors "$RUNNER_TEMP/summary-errs.txt")
+            claude -p "$FIXS" --resume "$SID" --max-turns 10 "${FLAGS[@]}" < /dev/null > "$RUNNER_TEMP/stream-0s.jsonl"
+            python3 "$S/claude_stream.py" "$RUNNER_TEMP"/stream-*.jsonl "$STAGE/run.json"
+          fi
           rounds=0
           for round in 1 2; do
             [ -f "$OUT/diagram.svg" ] && [ -n "$SID" ] || break
@@ -260,10 +268,13 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           cat "$GITHUB_STEP_SUMMARY"
 
+      # Must not depend on the scripts checkout, which may be the step that failed.
       - name: Record pipeline failure
-        if: failure()
+        if: always()
         run: |
-          [ -f "$STAGE/status.json" ] || python3 "$REPOBOX/action/scripts/status.py" "$STAGE/status.json" --status failed --error "pipeline: a workflow step failed"
+          stage="$RUNNER_TEMP/stage"
+          mkdir -p "$stage"
+          [ -f "$stage/status.json" ] || printf '%s\n' '{"status": "failed", "error": "pipeline: a workflow step failed or timed out", "entry": null, "repo_id": null, "diagram": false, "rounds": 0, "wall_s": 0, "claude_exit": null}' > "$stage/status.json"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
@@ -313,9 +324,13 @@ jobs:
           path: ${{ runner.temp }}/artifacts
 
       - name: Publish to library
+        env:
+          ITEMS: ${{ needs.plan.outputs.items }}
         run: |
           set -euo pipefail
-          python3 "$REPOBOX/action/scripts/publish.py" --artifacts "$RUNNER_TEMP/artifacts" --repo "$GITHUB_WORKSPACE" --push \
+          printf '%s' "$ITEMS" > "$RUNNER_TEMP/items.json"
+          python3 "$REPOBOX/action/scripts/publish.py" --artifacts "$RUNNER_TEMP/artifacts" --repo "$GITHUB_WORKSPACE" \
+            --items "$RUNNER_TEMP/items.json" --push \
             | tee "$RUNNER_TEMP/publish.json"
           jq -r '"## publish\n- analyzed: \(.ok)  sightings only: \(.dedup)  failed: \(.failed) \(.failed_ids | join(", "))"' \
             "$RUNNER_TEMP/publish.json" >> "$GITHUB_STEP_SUMMARY"

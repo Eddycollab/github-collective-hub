@@ -239,6 +239,21 @@ class PublishTest(unittest.TestCase):
         self.assertIn("Owner/Repo", (self.repo / "README.md").read_text())
         self.assertEqual(json.loads((self.repo / "index.json").read_text())["count"], 1)
 
+    def test_item_without_artifact_becomes_failed(self):
+        self.inbox("20261018-1", capture())
+        self.inbox("20261018-2", capture(url="https://github.com/Good/One"))
+        self.leg("20261018-2", m=meta("Good/One", 2))
+        items = [{"id": "20261018-1", "url": "https://github.com/Owner/Repo", "force": False},
+                 {"id": "20261018-2", "url": "https://github.com/Good/One", "force": False},
+                 {"id": "dispatch-3", "url": "https://github.com/x/y", "force": True},
+                 {"id": "../evil", "url": None, "force": False}]
+        res = publish.run(self.art, self.repo, now=NOW, items=items)
+        self.assertEqual((res["ok"], res["failed"]), (1, 2))
+        self.assertNotIn("../evil", res["failed_ids"])
+        rec = json.loads((self.repo / "inbox/failed/20261018-1.json").read_text())
+        self.assertIn("no artifact", rec["error"])
+        self.assertEqual(rec["capture"]["url"], "https://github.com/Owner/Repo")
+
 
 def git(cwd, *args):
     return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True).stdout

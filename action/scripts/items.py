@@ -13,14 +13,16 @@ from pathlib import Path
 
 ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{0,63}$")
 URL_RE = re.compile(r"^https://github\.com/[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+/?$")
-RAW_MAX = 4096
+URL_MAX = 200
+# GitHub caps a matrix at 256 jobs; the rest waits for the next run (any push or an empty dispatch).
+MAX_ITEMS = 200
 
 
 def _check_capture(cap: dict) -> str | None:
     if cap.get("v") != 1:
         return "capture: v must be 1"
     url = cap.get("url")
-    if not isinstance(url, str) or not URL_RE.match(url):
+    if not isinstance(url, str) or len(url) > URL_MAX or not URL_RE.match(url):
         return "capture: url is not a GitHub repo URL"
     at = cap.get("captured_at")
     if not isinstance(at, str):
@@ -33,25 +35,23 @@ def _check_capture(cap: dict) -> str | None:
 
 
 def _item(path: Path) -> dict:
+    """Matrix items carry only id/url/force: publish re-reads the capture from the repo."""
     stem = path.stem
-    text = path.read_text(encoding="utf-8", errors="replace")
     try:
-        data = json.loads(text)
+        data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
     except ValueError:
-        data, err = None, "capture: not valid JSON"
-    else:
-        err = None if isinstance(data, dict) else "capture: not a JSON object"
-    if err:
-        return {"id": stem, "url": None, "capture": None, "raw": text[:RAW_MAX], "force": False, "error": err}
+        return {"id": stem, "url": None, "force": False, "error": "capture: not valid JSON"}
+    if not isinstance(data, dict):
+        return {"id": stem, "url": None, "force": False, "error": "capture: not a JSON object"}
     err = _check_capture(data)
     if err:
-        return {"id": stem, "url": None, "capture": data, "raw": None, "force": False, "error": err}
-    return {"id": stem, "url": data["url"], "capture": data, "raw": None, "force": False}
+        return {"id": stem, "url": None, "force": False, "error": err}
+    return {"id": stem, "url": data["url"], "force": False}
 
 
 def collect(inbox: Path, url: str, run_id: str) -> list[dict]:
     if url:
-        return [{"id": f"dispatch-{run_id}", "url": url, "capture": None, "raw": None, "force": True}]
+        return [{"id": f"dispatch-{run_id}", "url": url, "force": True}]
     out, skipped = [], []
     for p in sorted(Path(inbox).glob("*.json")):
         if not p.is_file():
@@ -60,9 +60,10 @@ def collect(inbox: Path, url: str, run_id: str) -> list[dict]:
             skipped.append(p.name)
             continue
         out.append(_item(p))
-    if skipped:
-        print(json.dumps({"skipped": skipped}), file=sys.stderr)
-    return sorted(out, key=lambda i: i["id"])
+    out.sort(key=lambda i: i["id"])
+    if skipped or len(out) > MAX_ITEMS:
+        print(json.dumps({"skipped": skipped, "deferred": len(out[MAX_ITEMS:])}), file=sys.stderr)
+    return out[:MAX_ITEMS]
 
 
 def main(argv: list[str]) -> int:

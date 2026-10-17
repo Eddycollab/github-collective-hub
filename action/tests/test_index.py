@@ -78,6 +78,17 @@ class IndexTest(unittest.TestCase):
         self.assertEqual([e["repo"] for e in data["entries"]], ["B/New", "A/Old"])
         self.assertIn("generated_at", data)
 
+    def test_readme_defuses_bare_url_in_description(self):
+        write_entry(self.lib, "A/One", 1, description="Docs at https://evil.example/x")
+        text = index.render_readme(index.collect(self.lib), taxonomy.DEFAULT, today="2026-10-18")
+        self.assertIn("`https://evil.example/x`", text)
+
+    def test_readme_survives_hand_edited_frontmatter(self):
+        p = write_entry(self.lib, "A/One", 1)
+        p.write_text(p.read_text(encoding="utf-8").replace("stars: 3", "stars: lots").replace("tags:", "tags: oops\nold_tags:"), encoding="utf-8")
+        text = index.render_readme(index.collect(self.lib), taxonomy.DEFAULT, today="2026-10-18")
+        self.assertIn("A/One", text)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -18,6 +18,8 @@ USER_DEFAULT = "\n## 我的筆記\n\n"
 NOTE_MAX = 500
 _TAG = re.compile(r"<[^>]*>", re.S)
 _MD_SPECIAL = re.compile(r"([\\`*_\[\]()#!|~])")
+# GFM autolinks bare URLs and emails even without link syntax; these go into code spans.
+_AUTOLINK = re.compile(r"(?:https?://|www\.)\S+|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", re.I)
 FM_KEYS = ("repo", "repo_id", "url", "description", "language", "stars", "license", "category",
            "tags", "stack", "sightings", "analyzed_at", "analysis")
 CARRIED_ON_DEDUP = ("category", "tags", "stack", "analyzed_at", "analysis")
@@ -49,7 +51,13 @@ def md_escape(s: str) -> str:
 
 
 def safe_text(s) -> str:
-    return md_escape(to_plain(s))
+    plain, out, pos = to_plain(s), [], 0
+    for m in _AUTOLINK.finditer(plain):
+        out.append(md_escape(plain[pos:m.start()]))
+        out.append("`" + m.group(0).replace("`", "") + "`")
+        pos = m.end()
+    out.append(md_escape(plain[pos:]))
+    return "".join(out)
 
 
 def _split(text: str) -> tuple[dict, str]:

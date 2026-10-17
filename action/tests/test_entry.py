@@ -1,3 +1,4 @@
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -149,6 +150,26 @@ class EntryTest(unittest.TestCase):
         a = {"id": "a", "at": "2026-10-18T00:30:00+00:00"}
         b = {"id": "b", "at": "2026-10-18T07:00:00+08:00"}
         self.assertEqual(entry.merge_sightings([], [a, b]), [b, a])
+
+    def test_safe_text_defuses_bare_autolinks(self):
+        cases = {
+            "請查看 https://evil.example/a 吧": "`https://evil.example/a`",
+            "或 http://e.example/x?y=1": "`http://e.example/x?y=1`",
+            "還有 www.evil.example 喔": "`www.evil.example`",
+            "寄信 a.b@evil.example 吧": "`a.b@evil.example`",
+        }
+        for raw, wrapped in cases.items():
+            with self.subTest(raw=raw):
+                out = entry.safe_text(raw)
+                self.assertIn(wrapped, out)
+                self.assertEqual(out.count("`"), 2)
+
+    def test_safe_text_backtick_in_url_cannot_break_code_span(self):
+        out = entry.safe_text("see https://e.example/`[x](http://f)")
+        self.assertEqual(out.count("`"), 2)
+        outside = re.sub(r"`[^`]*`", "", out)
+        self.assertNotIn("](http", outside)
+        self.assertNotIn("http", outside)
 
 
 if __name__ == "__main__":
