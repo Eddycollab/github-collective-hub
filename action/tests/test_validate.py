@@ -62,6 +62,15 @@ class SummaryTest(unittest.TestCase):
         self.assertTrue(validate.validate_summary(summary_with(examples=["例如一。", "例如二二。", "例如三三三。"]), CATS))
         self.assertTrue(validate.validate_summary(summary_with(examples=["例如" + "很長" * 70]), CATS))
 
+    def test_summary_requirements_rules(self):
+        d = {k: v for k, v in OK.items() if k != "requirements"}
+        self.assertTrue(validate.validate_summary(json.dumps(d, ensure_ascii=False), CATS))
+        self.assertTrue(validate.validate_summary(summary_with(requirements=[]), CATS))
+        self.assertTrue(validate.validate_summary(summary_with(requirements=["一", "二二二二", "三三三三", "四四四四", "五五五五"]), CATS))
+        self.assertTrue(validate.validate_summary(summary_with(requirements=["Windows only"]), CATS))
+        self.assertTrue(validate.validate_summary(summary_with(requirements=["平台" + "很長" * 60]), CATS))
+        self.assertEqual(validate.validate_summary(summary_with(requirements=["不需安裝，直接閱讀"]), CATS), [])
+
 
 class SvgTest(unittest.TestCase):
     def test_svg_ok_example_passes(self):

@@ -13,6 +13,7 @@ META = {
 }
 ANALYSIS = {
     "intro": "一個給人用的白話介紹，說明這個工具能幫你做什麼事情，以及為什麼你會想用它。", "examples": ["用它來整理下載資料夾裡的檔案。", "用它來幫專案自動寫測試。"],
+    "requirements": ["平台：只支援 Windows", "費用：免費"],
     "summary": "這是一個工具，用來測試條目產生是否正確。", "category": "dev-tool", "tags": ["cli"],
     "stack": ["Python", "C#"], "highlights": ["第一個值得借鏡的地方。", "第二個值得借鏡的地方。"],
 }
@@ -271,6 +272,12 @@ class EntryTest(unittest.TestCase):
         with self.assertRaises(OSError):
             entry.write_entry_files(p, self.fm, "new text")
         self.assertFalse((self.lib / "fresh.json").exists())
+
+    def test_render_requirements_after_intro(self):
+        text = entry.render_entry(self.fm, ANALYSIS, None, None)
+        self.assertLess(text.index("## 這是什麼"), text.index("## 使用門檻"))
+        self.assertLess(text.index("## 使用門檻"), text.index("## 技術摘要"))
+        self.assertIn("- 平台：只支援 Windows\n- 費用：免費\n", text)
 
 
 if __name__ == "__main__":

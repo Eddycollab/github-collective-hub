@@ -77,6 +77,11 @@ class PromptTest(unittest.TestCase):
         self.assertIn('"examples"', out)
         self.assertIn("jargon", out)
 
+    def test_analyze_asks_for_requirements(self):
+        _, out, _ = run("analyze", "--full", "a/b", "--target", "/t", "--out", "/o", "--skill", "/s", "--taxonomy", "-")
+        self.assertIn('"requirements"', out)
+        self.assertIn("不需安裝", out)
+
 
 if __name__ == "__main__":
     unittest.main()

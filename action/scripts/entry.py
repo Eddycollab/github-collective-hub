@@ -193,6 +193,7 @@ def _auto_block(analysis: dict, svg_name: str | None) -> str:
     parts = [
         "\n## 這是什麼\n\n" + safe_text(analysis["intro"]) + "\n\n"
         + "".join(f"- **例如**：{safe_text(e)}\n" for e in analysis["examples"]),
+        "\n## 使用門檻\n\n" + "".join(f"- {safe_text(r)}\n" for r in analysis["requirements"]),
         "\n## 技術摘要\n\n" + safe_text(analysis["summary"]) + "\n",
         "\n## 值得借鏡\n\n" + "".join(f"- {safe_text(h)}\n" for h in analysis["highlights"]),
         "\n## 技術棧\n\n" + " · ".join(safe_text(s) for s in analysis["stack"]) + "\n",

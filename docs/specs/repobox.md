@@ -123,6 +123,7 @@ stack: [TypeScript, Node.js]
 ---
 <!-- repobox:auto:start -->
 ## 這是什麼          白話介紹（給人看，不用專有名詞）＋ 1–2 個「例如」使用情境
+## 使用門檻          1–4 行：平台／需要準備／費用；不用安裝的寫「不需安裝」。不寫安裝步驟（會過期，裝的時候讓 AI 讀最新 README）
 ## 技術摘要          給開發者看的架構說明
 ## 值得借鏡
 ## 技術棧
@@ -152,7 +153,7 @@ stack: [TypeScript, Node.js]
 2. **分析（Claude Code，用訂閱）：**
    - 由腳本先對目標 repo 做淺層 clone。Claude 不自己發網路請求，DeepWiki MCP 除外。
    - 參考資料：clone 下來的程式碼、README，以及 DeepWiki MCP（`https://mcp.deepwiki.com/mcp`，免費、免登入、只支援公開 repo）。DeepWiki 是選用的，查不到照樣跑。
-   - 輸出 `out/summary.json`：`intro`（30–300 字白話介紹）、`examples`（1–2 個使用情境、每個 10–120 字）、`summary`（20–600 字、含中文）、`category`（taxonomy 之一）、`tags`（≤5，小寫）、`stack`（1–8 項）、`highlights`（2–3 句、每句 10–120 字、含中文）。限制寫在提示詞裡。
+   - 輸出 `out/summary.json`：`intro`（30–300 字白話介紹）、`examples`（1–2 個使用情境、每個 10–120 字）、`requirements`（1–4 行使用門檻、每行 2–100 字）、`summary`（20–600 字、含中文）、`category`（taxonomy 之一）、`tags`（≤5，小寫）、`stack`（1–8 項）、`highlights`（2–3 句、每句 10–120 字、含中文）。限制寫在提示詞裡。
    - 輸出 `out/diagram.svg`：照 arch-blueprint 畫，提示詞要求跳過確認步、改為檢查每個節點都對應到實際路徑。
    - 修正迴圈：Claude 沒有 shell。summary 不合格 → 把驗證錯誤交回同一個對話（`--resume`）修一次；`check.py` 不過 → 把錯誤交回修，最多 2 輪。
 3. **驗證與寫回（腳本，獨立 job）：**

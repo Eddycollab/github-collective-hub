@@ -9,6 +9,7 @@ try to run commands; the pipeline runs the checker for you afterwards.
 2. Write $OUT/summary.json with exactly this shape and nothing else in the file:
    {"intro": "<2-3 sentences in zh-TW for a non-specialist: what this lets a person do and why they would want it. No jargon; if a technical term is unavoidable, explain it in the same sentence. Say nothing about how it is implemented>",
     "examples": ["<1-2 concrete usage scenarios in zh-TW, each one sentence describing what a user does and what they get, e.g. 在 ChatGPT 說「把下載資料夾的 PDF 依月份分類」，它會直接整理好。>"],
+    "requirements": ["<1-4 short zh-TW lines on what a person needs before they can use it, each starting with a label: 平台：(OS / runtime), 需要準備：(hardware, accounts, API keys, other software), 費用：(free, paid plan, pay-per-use API). Only state what the repo actually says or clearly implies; skip a label you cannot support. If nothing has to be installed (a list, tutorial or reference), write exactly one line: 不需安裝>"],
     "summary": "<3-5 sentences in Traditional Chinese (zh-TW) for a developer: architecture and main components; plain text, no markup, no URLs>",
     "category": "<exactly one category name from the list below>",
     "tags": ["<at most 5 lowercase tags>"],
@@ -17,6 +18,7 @@ try to run commands; the pipeline runs the checker for you afterwards.
    Hard limits, checked by a validator that rejects the whole file on any violation:
    - intro: 30-300 characters, must contain Chinese.
    - examples: 1 or 2 items, each 10-120 characters, must contain Chinese.
+   - requirements: 1-4 items, each 2-100 characters, must contain Chinese.
    - summary: 20-600 characters, must contain Chinese.
    - tags: at most 5, each lowercase letters, digits, ".", "+" or "-", at most 40 characters.
    - stack: 1-8 items, each at most 30 characters (letters, digits, space, . + # / -).
