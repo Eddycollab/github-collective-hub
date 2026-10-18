@@ -8,8 +8,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
-  <meta name="theme-color" content="#f6f6f5" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#0c0c0c" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f4f7fb" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0e2f6b" media="(prefers-color-scheme: dark)">
   <link rel="stylesheet" href="tokens.css">
   <style>
     /* One sheet per screen on desktop: title block on top, diagram left, a fixed reading column right. */
@@ -79,7 +79,7 @@
     @media (min-width: 1000px) {
       /* Desktop: the page never scrolls; a short screen scrolls the reading column, a long tab its panel. */
       html:has(.read:not([hidden])), html:has(.read:not([hidden])) body { overflow: hidden; }
-      .view:has(.read:not([hidden])) { height: 100%; }
+      .view:has(.read:not([hidden])) { height: 100%; padding-bottom: max(36px, env(safe-area-inset-bottom)); }
       .read { flex: 1; min-height: 0; grid-template-columns: minmax(0, 1fr) 480px; }
       .col { overflow-y: auto; }
       .more { min-height: 140px; }
@@ -95,8 +95,8 @@
     .dia .canvas { fill: transparent !important; }
     .dia .node, .dia .edge, .dia .label { transition: opacity .2s; }
     .dia.focus .node:not(.lit), .dia.focus .edge:not(.lit), .dia.focus .label:not(.lit) { opacity: .15; }
-    .dia .edge.lit { stroke: var(--ink); stroke-width: 3; }
-    .dia .node.lit rect { stroke: var(--ink); stroke-width: 3; }
+    .dia .edge.lit { stroke: var(--link); stroke-width: 2.6; }
+    .dia .node.lit rect { stroke: var(--link); stroke-width: 2.6; }
 
     .lightbox { position: fixed; inset: 0; z-index: 20; background: var(--paper); display: flex; flex-direction: column;
                 padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }

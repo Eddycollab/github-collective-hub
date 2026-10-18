@@ -10,20 +10,26 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
-  <meta name="theme-color" content="#f6f6f5" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#0c0c0c" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f4f7fb" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0e2f6b" media="(prefers-color-scheme: dark)">
   <style>
     /* One column: the link box on top, the library below; the page itself never scrolls. */
     * { box-sizing: border-box; }
     html, body { height: 100%; }
-    body { margin: 0; overflow: hidden; color: var(--ink); background: var(--paper); font: 16px/1.5 var(--sans); }
+    body {
+      margin: 0; overflow: hidden; color: var(--ink); font: 16px/1.5 var(--sans); background-color: var(--paper);
+      background-image:
+        linear-gradient(var(--grid-major) 1px, transparent 1px), linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+        linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 40px 40px, 40px 40px, 8px 8px, 8px 8px;
+    }
     .sheet {
       height: 100dvh; max-width: 760px; margin: 0 auto;
       padding: max(14px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
       display: flex; flex-direction: column; gap: 16px;
     }
     button, input { font: inherit; color: inherit; }
-    :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+    :focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 
     header { display: flex; align-items: center; justify-content: space-between; }
     .mark { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 19px; letter-spacing: -0.01em; }
@@ -35,7 +41,7 @@
     }
     .chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mute); flex: none; }
-    .chip[data-ok="1"] .dot { background: var(--ink); }
+    .chip[data-ok="1"] .dot { background: var(--cyan); }
 
     .btn {
       display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -67,7 +73,7 @@
                    border-bottom: 2px solid var(--line); padding-bottom: 6px; }
     .recent-head h2 { font-size: 16px; margin: 0; }
     .recent-head h2 span { font-weight: 400; color: var(--mute); font-size: 13px; margin-left: 6px; }
-    .recent-head a { font-size: 14px; color: var(--ink); font-weight: 600; text-decoration: none; }
+    .recent-head a { font-size: 14px; color: var(--link); font-weight: 600; text-decoration: none; }
     .lib-note { margin: 8px 0 0; font-size: 13px; color: var(--err); }
     .lib-note:empty { display: none; }
     /* Scrolls inside the one-screen layout; the scrollbar stays hidden like the rest of the page. */
@@ -92,7 +98,7 @@
       border: 2px solid var(--line); border-bottom: 0; border-radius: 16px 16px 0 0;
       background: var(--paper); color: var(--ink); overflow: auto;
     }
-    dialog::backdrop { background: #00000066; }
+    dialog::backdrop { background: #0b1a3a66; }
     dialog h2 { font-size: 17px; margin: 0 0 4px; }
     dialog p { margin: 4px 0 12px; font-size: 14px; color: var(--mute); }
     dialog label { display: block; margin: 10px 0 4px; font-size: 14px; font-weight: 600; }
