@@ -1,3 +1,4 @@
+import json
 import re
 import tempfile
 import unittest
@@ -229,11 +230,31 @@ class EntryTest(unittest.TestCase):
         self.assertEqual(got["sightings"][0]["id"], "a")
         self.assertEqual(got["analysis"], {"model": "m"})
 
-    def test_read_record_ignores_corrupt_sidecar(self):
+    def test_read_record_rejects_corrupt_sidecar(self):
         p = self.lib / "owner__repo.md"
         write(p, self.fm)
         (self.lib / "owner__repo.json").write_text("{broken", encoding="utf-8")
-        self.assertEqual(entry.read_record(p)["repo_id"], 42)
+        with self.assertRaises(ValueError):
+            entry.read_record(p)
+
+    def test_write_entry_files_handles_yaml_dates_and_writes_sidecar_first(self):
+        import datetime as dt
+        p = self.lib / "owner__repo.md"
+        rec = dict(self.fm, analyzed_at=dt.datetime(2026, 10, 1, tzinfo=dt.timezone.utc),
+                   sightings=[{"id": "a", "at": dt.date(2026, 10, 1)}])
+        entry.write_entry_files(p, rec, "md text")
+        side = json.loads((self.lib / "owner__repo.json").read_text(encoding="utf-8"))
+        self.assertEqual(side["analyzed_at"], "2026-10-01 00:00:00+00:00")
+        self.assertEqual(side["sightings"][0]["at"], "2026-10-01")
+        self.assertEqual(p.read_text(encoding="utf-8"), "md text")
+
+    def test_md_untouched_when_sidecar_cannot_be_written(self):
+        p = self.lib / "owner__repo.md"
+        p.write_text("original", encoding="utf-8")
+        (self.lib / "owner__repo.json").mkdir()
+        with self.assertRaises(OSError):
+            entry.write_entry_files(p, self.fm, "new text")
+        self.assertEqual(p.read_text(encoding="utf-8"), "original")
 
 
 if __name__ == "__main__":

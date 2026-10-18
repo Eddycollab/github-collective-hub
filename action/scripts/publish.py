@@ -200,7 +200,7 @@ def _publish_group(repo: Path, legs: list[Leg], now: str) -> Leg:
             svg_path.unlink()
         text = entry.render_entry(fm, winner.summary, svg_path.name if winner.svg is not None else None, user)
     else:
-        fm = entry.build_frontmatter(meta, None, sightings, prev_fm, None)
+        fm = entry.build_frontmatter(meta, None, sightings, prev_fm, None, now=now)
         auto = entry.read_auto(target)
         text = entry.render_entry(fm, None, None, user, auto=auto if auto is not None else "\n")
     entry.write_entry_files(target, fm, text)

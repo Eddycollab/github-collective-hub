@@ -293,6 +293,22 @@ class PublishTest(unittest.TestCase):
         self.assertNotIn("analysis:", text.split(entry.START, 1)[0])
         self.assertIn("## 技術摘要", text)
 
+    def test_corrupt_sidecar_fails_leg_without_overwriting(self):
+        write_entry(self.lib, sightings=[{"id": "a", "at": "2026-10-01T00:00:00+00:00"}])
+        (self.lib / "owner__repo.json").write_text("{broken", encoding="utf-8")
+        self.inbox("20261018-2", capture())
+        self.leg("20261018-2", status="dedup", entry_path="library/owner__repo.md")
+        res = self.run_publish()
+        self.assertEqual(res["failed"], 1)
+        self.assertEqual((self.lib / "owner__repo.json").read_text(encoding="utf-8"), "{broken")
+
+    def test_dedup_stars_at_uses_batch_time(self):
+        write_entry(self.lib)
+        self.inbox("20261018-2", capture())
+        self.leg("20261018-2", status="dedup", entry_path="library/owner__repo.md")
+        publish.run(self.art, self.repo, now="2030-01-02T00:00:00+00:00")
+        self.assertEqual(self.md()[0]["stars_at"], "2030-01-02")
+
 
 def git(cwd, *args):
     return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True).stdout

@@ -27,7 +27,8 @@ def collect(library: Path) -> list[dict]:
     for p in sorted(Path(library).glob("*.md")):
         try:
             fm = entry.read_record(p)
-        except (OSError, UnicodeDecodeError):
+        except (OSError, UnicodeDecodeError, ValueError) as e:
+            print(f"index: skipping {p.name}: {e}")
             continue
         repo, rid = fm.get("repo"), fm.get("repo_id")
         if not (isinstance(repo, str) and FULL_RE.match(repo) and isinstance(rid, int) and STEM_RE.match(p.stem)):

@@ -102,19 +102,27 @@ def read_record(md_path: Path) -> dict:
     """Frontmatter merged with the sidecar; legacy entries kept everything in frontmatter."""
     fm, _ = read_entry(md_path)
     record = dict(fm)
+    side = sidecar(md_path)
+    if not side.exists():
+        return record
+    # A damaged sidecar must stop the write: falling back would overwrite it with a record
+    # that has lost its sightings and analysis.
     try:
-        data = json.loads(sidecar(md_path).read_text(encoding="utf-8"))
-    except (OSError, ValueError, UnicodeDecodeError):
-        data = None
-    if isinstance(data, dict):
-        record.update(data)
+        data = json.loads(side.read_text(encoding="utf-8"))
+    except (OSError, ValueError, UnicodeDecodeError) as e:
+        raise ValueError(f"{side.name}: unreadable sidecar ({e.__class__.__name__})") from e
+    if not isinstance(data, dict):
+        raise ValueError(f"{side.name}: sidecar is not an object")
+    record.update(data)
     return record
 
 
 def write_entry_files(md_path: Path, record: dict, md_text: str) -> None:
+    # Sidecar first: legacy entries keep their machine fields in the .md until this succeeds.
+    # default=str turns YAML-parsed dates into strings.
+    data = json.dumps({k: record.get(k) for k in FM_KEYS}, ensure_ascii=False, indent=2, default=str)
+    sidecar(md_path).write_text(data + "\n", encoding="utf-8")
     Path(md_path).write_text(md_text, encoding="utf-8")
-    sidecar(md_path).write_text(
-        json.dumps({k: record.get(k) for k in FM_KEYS}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def display_frontmatter(record: dict) -> dict:
