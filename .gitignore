@@ -38,3 +38,7 @@ __pycache__/
 
 # Local agent scratch (plans in flight, prototypes)
 .superpowers/
+
+# Personal project manifest, read locally by `proj`
+PROJECT.toml
+RepoBox 規格文件.md

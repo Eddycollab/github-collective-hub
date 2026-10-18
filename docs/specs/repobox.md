@@ -1,6 +1,6 @@
 # RepoBox 規格書
 
-2026-10-17 · @Cholate
+2026-10-17
 
 本文件是方向與共識，不是實作計畫。實作計畫另寫，以本文件為需求來源。
 
@@ -42,7 +42,7 @@
 | 收藏 repo | 使用者的 GitHub（私人），從範本 repo 建立，內含約 20 行的 stub workflow，以 commit SHA 引用分析 Action | 資料本體 |
 | arch-blueprint | 公開 repo `cholateio/arch-blueprint`，Action 釘 commit 後 `git fetch` 下來，設成唯讀 | 畫架構圖 |
 
-開發者只維護 `repobox` 一個公開 repo（網頁加 Action），不另設 template repo。token 只存在使用者自己網頁的瀏覽器本地。
+開發者維護兩個公開 repo：`repobox`（網頁加 Action）和收藏庫範本 `repobox-library-template`（只有 stub、預設 `taxonomy.yml`、幾句 README）。token 只存在使用者自己網頁的瀏覽器本地。
 
 曾考慮改用「預填 GitHub issue」完全不用 token，但每次收藏要多按一次 Submit；既然網頁是自己架的，選擇 token 版，換取一鍵收藏。
 
@@ -235,7 +235,7 @@ Claude 讀的是陌生 repo 的內容，要當成可能含有 prompt injection �
 - [x] 量測每筆分析花的 Actions 分鐘數與牆鐘時間（2026-10-17，一個小型 Python repo：Claude 409 秒、job 7 分 16 秒、21 turns，API 等價成本 US$1.72，由訂閱額度支付）
 - [x] 從 GitHub Pages 用 fine-grained token 呼叫 Contents API，沒有 CORS 問題（2026-10-17 手機實測通過）
 - [x] bubblewrap 在 GitHub runner 上能讓 `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` 正常運作（2026-10-17；開了 scrub 後 CLI 會把 permission mode 強制改成 default，但在 `-p` 下非白名單工具一樣被拒，實測擋下一次 `find`/`cat`）
-- [ ] GitHub 新增檔案頁面可以用網址參數預填檔名與內容（`?filename=...&value=...`）；不行就改成 README 附一段 workflow 讓人複製
+- [x] ~~GitHub 新增檔案頁面可以用網址參數預填檔名與內容~~ 不需要了：改用範本 repo（2026-10-19）
 
 ### Phase 1：MVP
 
@@ -245,7 +245,7 @@ Claude 讀的是陌生 repo 的內容，要當成可能含有 prompt injection �
 - [x] 每次分析記錄用了哪些工具（`analysis.deepwiki`、`turns`、`rounds`）
 - [x] 分析 Action 改成 reusable workflow，收藏 repo 只留 stub 並以 commit SHA 引用
 - [x] 收藏網頁：設定、分享目標、貼上連結、書籤（Phase 0 完成）
-- [ ] README：自用安裝步驟、隱私說明
+- [x] README：自用安裝步驟、隱私說明（2026-10-19）
 
 **驗收標準：**
 
