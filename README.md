@@ -68,6 +68,13 @@
 2. 打開收藏網頁的設定，填上 `<帳號>/repobox-library` 和這把 token。
 3. Android 把網頁加到主畫面，分享選單就有 RepoBox；電腦把網頁上的書籤按鈕拖到書籤列。
 
+## 隱私與安全
+
+- token 只存在你自己裝置的瀏覽器，只會送到 `api.github.com`。網頁不載入任何第三方程式碼。
+- 只分析公開 repo。Claude 讀的是陌生人的程式碼，所以當成不可信資料處理：它沒有 shell、只能寫一個暫存資料夾，產出要經過另一個不跑 Claude 的 job 重新檢查才會寫進你的 repo。
+- 架構圖在顯示前會再過一次白名單，有問題的圖只顯示提示，不會被執行。
+- 建議幫收藏網頁綁一個自訂子網域：同一個 `<帳號>.github.io` 底下的其他網站讀得到這個網頁存的 token。
+
 ## 授權
 
 [MIT](LICENSE)。架構圖由 [arch-blueprint](https://github.com/cholateio/arch-blueprint) 繪製。
