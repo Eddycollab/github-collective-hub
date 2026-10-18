@@ -5,7 +5,7 @@ name = "RepoBox"
 status = "idle"            # active | mvp | idle | done | paused | abandoned
                            # idle = 上線自走、無人開發、等訊號或新需求（還活著、還在花錢，
                            #        跟 paused「連跑都不跑了」與 done「結案」都不同）
-status_note = "已上線自用，README 改成給陌生人看的分享版;下一步加授權條款並開始推廣"   # 兩段以分號隔開,每段一句話、上限 60 字;
+status_note = "已上線自用，README 改成給陌生人看的分享版;下一步錄示範影片並開始推廣"   # 兩段以分號隔開,每段一句話、上限 60 字;
                                      # 細節(數據/hash/待辦清單)歸 LESSONS/commit,不寫這裡
 updated = 2026-10-19       # 最後一次人工確認本檔內容的日期
 # lang = ["Python", "Bash"] # 選填,覆蓋 dashboard 的語言 tag。預設從根標記檔自動偵測

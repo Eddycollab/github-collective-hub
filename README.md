@@ -28,76 +28,46 @@
 
 沒有伺服器、沒有資料庫，也沒有共用網站。網頁是你 fork 出來的 GitHub Pages，分析跑在你自己的 GitHub Actions。
 
-## 安裝（約 15 分鐘）
+## 安裝
 
-需要：GitHub 帳號、Claude Pro 或 Max 訂閱、裝好 [Claude Code](https://claude.com/claude-code) 和 [GitHub CLI](https://cli.github.com) 的電腦。
+需要：GitHub 帳號、Claude Pro 或 Max 訂閱，以及裝好 Claude Code 的電腦（產生 token 用）。全程在 GitHub 網頁上點，只有第 2 步要在終端機打一行指令。
 
 ### 1. 架收藏網頁
 
-1. Fork 本 repo。
-2. 到 fork 的 **Actions** 分頁按啟用（fork 預設是關的）。
-3. **Settings → Pages → Source** 選 **GitHub Actions**，再到 **Actions → pages → Run workflow** 跑一次。
+1. Fork 本 repo，到 fork 的 **Actions** 分頁按啟用。
+2. **Settings → Pages → Source** 選 **GitHub Actions**，再到 **Actions → pages → Run workflow** 跑一次。
 
-網址會是 `https://<帳號>.github.io/repobox/`。建議在同一頁綁一個自訂子網域：token 存在網頁裡，同一個 `<帳號>.github.io` 底下的其他網站讀得到它。
+網頁會在 `https://<帳號>.github.io/repobox/`。
 
 ### 2. 建收藏 repo
 
-```sh
-gh repo create repobox-library --private --add-readme
-gh api repos/<帳號>/repobox/commits/main --jq .sha    # 記下這串 40 字元的 SHA
-```
+1. 新建一個**私人** repo，名稱填 `repobox-library`，勾 **Add a README file**。
+2. 在裡面 **Add file → Create new file**，檔名填 `.github/workflows/repobox.yml`，貼上下面內容。`<帳號>` 換成你的帳號；`<SHA>` 到你 fork 的 **Commits** 頁，按最上面那筆的 **Copy full SHA** 貼上。
 
-在 `repobox-library` 新增 `.github/workflows/repobox.yml`，把兩個 `<…>` 換掉：
+   ```yaml
+   name: repobox
+   on:
+     push: { branches: [main], paths: ['inbox/*.json'] }
+     workflow_dispatch:
+       inputs:
+         url: { description: 'GitHub repo URL to (re)analyze; empty = process inbox', required: false, default: '' }
+   concurrency: { group: repobox, cancel-in-progress: false }
+   permissions: { contents: write }
+   jobs:
+     repobox:
+       uses: <帳號>/repobox/.github/workflows/analyze.yml@<SHA>
+       with: { url: '${{ inputs.url }}' }
+       secrets: { CLAUDE_CODE_OAUTH_TOKEN: '${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}' }
+   ```
 
-```yaml
-name: repobox
-on:
-  push: { branches: [main], paths: ['inbox/*.json'] }
-  workflow_dispatch:
-    inputs:
-      url: { description: 'GitHub repo URL to (re)analyze; empty = process inbox', required: false, default: '' }
-concurrency: { group: repobox, cancel-in-progress: false }
-permissions: { contents: write }
-jobs:
-  repobox:
-    uses: <帳號>/repobox/.github/workflows/analyze.yml@<40 字元 SHA>
-    with: { url: '${{ inputs.url }}' }
-    secrets: { CLAUDE_CODE_OAUTH_TOKEN: '${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}' }
-```
-
-接著在自己的終端機把 Claude 訂閱接上（token 約一年到期）：
-
-```sh
-claude setup-token                                          # 會印出一串 token
-gh secret set CLAUDE_CODE_OAUTH_TOKEN -R <帳號>/repobox-library   # 貼上剛剛那串
-```
-
-`uses:` 一定要寫 commit SHA，不要寫 `@main`。這個 workflow 拿得到你私人 repo 的寫入權和 Claude token，釘死版本才不會被別人的改動牽著走。之後想更新分析流程，再手動換新的 SHA。
+3. 在裝了 [Claude Code](https://claude.com/claude-code) 的終端機執行 `claude setup-token`，登入後會印出一串 token。到收藏 repo 的 **Settings → Secrets and variables → Actions → New repository secret**，名稱填 `CLAUDE_CODE_OAUTH_TOKEN`，貼上 token。
 
 ### 3. 每台裝置連一次
 
-到 GitHub **Settings → Developer settings → Fine-grained tokens** 建一把 token：Repository access 只選 `repobox-library`，Permissions 只開 **Contents: Read and write**。打開收藏網頁的設定，填上收藏庫（`<帳號>/repobox-library`）和這把 token。
+1. GitHub **Settings → Developer settings → Fine-grained tokens** 建一把 token：只選 `repobox-library`，權限只開 **Contents: Read and write**。
+2. 打開收藏網頁的設定，填上 `<帳號>/repobox-library` 和這把 token。
+3. Android 把網頁加到主畫面，分享選單就有 RepoBox；電腦把網頁上的書籤按鈕拖到書籤列。
 
-- **Android**：把網頁加到主畫面，分享選單就會出現 RepoBox。
-- **電腦**：把網頁上的書籤按鈕拖到書籤列，在 GitHub 頁面按它。
+## 授權
 
-## 日常使用
-
-- 收進來的專案約 3–8 分鐘分析完，出現在收藏頁的書庫；點進去是閱讀頁。
-- 同一個專案再收一次只記「又看到一次」，不會重跑分析。
-- 想重新分析：`repobox-library` 的 **Actions → repobox → Run workflow**，填專案網址。
-- 分析失敗的收藏會留在 `inbox/failed/`，檔案裡寫了原因。
-- 每次分析用掉幾分鐘的 Actions 時間。GitHub 免費方案的私人 repo 每月有 2000 分鐘。
-
-## 隱私與安全
-
-- token 只存在你自己裝置的瀏覽器，只會送到 `api.github.com`。網頁不載入任何第三方程式碼。
-- 只分析公開 repo。Claude 讀的是陌生人的程式碼，所以當成不可信資料處理：它沒有 shell、只能寫一個暫存資料夾，產出要經過另一個不跑 Claude 的 job 重新檢查才會寫進你的 repo。
-- 架構圖在顯示前會再過一次白名單，有問題的圖只顯示提示，不會被執行。
-
-## 開發
-
-- 測試：`python3 -m unittest discover -s action/tests`、`node --test 'web/tests/*.test.mjs'`
-- 網頁情境測試（需要 playwright-core）：`PW_CORE=<playwright-core 路徑> node web/tests/e2e/gate.cjs`，另有 `capture.cjs`、`read.cjs`
-- 設計與決策：[`docs/specs/repobox.md`](docs/specs/repobox.md)
-- 架構圖由 [arch-blueprint](https://github.com/cholateio/arch-blueprint) 繪製
+[MIT](LICENSE)。架構圖由 [arch-blueprint](https://github.com/cholateio/arch-blueprint) 繪製。
