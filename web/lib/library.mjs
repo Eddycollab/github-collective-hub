@@ -106,10 +106,12 @@ const OS = [['Windows', /windows/i], ['macOS', /mac\s?os|macos|\bmac\b|apple sil
 
 // A match counts only when no negation (不支援、無法、不需、不按…) sits just before it.
 const NEGATION = /(不|無|免|非|沒有|沒)[^，,。；;、]{0,3}$/;
+const AFFIRMATIVE = /(無論|不論|不管|不只|不僅|不但|並非只|非只)[^，,。；;]{0,6}$/;
 function positive(text, re) {
   const g = new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`);
   for (const m of text.matchAll(g)) {
-    if (!NEGATION.test(text.slice(Math.max(0, m.index - 6), m.index))) return m.index;
+    const before = text.slice(Math.max(0, m.index - 6), m.index);
+    if (!NEGATION.test(before) || AFFIRMATIVE.test(before)) return m.index;
   }
   return -1;
 }

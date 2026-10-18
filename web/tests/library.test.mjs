@@ -129,3 +129,11 @@ test('categoryLabel never returns inherited object members', async () => {
   assert.equal(categoryLabel('__proto__'), '__proto__');
   assert.equal(categoryLabel(''), '');
 });
+
+test('affirmative 無論/不論/不只 are not negations', async () => {
+  const { badges } = await import('../lib/library.mjs');
+  assert.deepEqual(badges(['平台：無論 Windows、macOS 或 Linux 都可使用']), ['跨平台']);
+  assert.deepEqual(badges(['平台：不論 Windows 或 macOS 都能跑']), ['Windows', 'macOS']);
+  assert.deepEqual(badges(['平台：不只 Windows，也支援 Linux']), ['Windows', 'Linux']);
+  assert.deepEqual(badges(['平台：不管 macOS 還是 Windows 都行']), ['macOS', 'Windows']);
+});
