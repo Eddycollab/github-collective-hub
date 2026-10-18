@@ -123,6 +123,30 @@ const INDEX = fs.readFileSync(path.join(__dirname, 'fixtures/index.json'), 'utf8
     expect('one-screen page still does not scroll', await page.evaluate(() => document.documentElement.scrollHeight === innerHeight), 'page scrolls');
     await ctx.close();
   }
+  {
+    // Many categories on a short desktop screen: the last index button must be reachable.
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 560 } });
+    const errors = [];
+    const cats = ['constructor', 'toString', 'alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta', 'iota', 'kappa'];
+    const idx = JSON.stringify({ entries: cats.map((c, i) => ({ repo: `O/R${i}`, md: `library/o__r${i}.md`, tagline: '副標文字測試', category: c, last_seen: '2026-10-19T00:00:00Z' })) });
+    await ctx.route('https://api.github.com/**', (r) => r.fulfill({ status: r.request().url().endsWith('/index.json') ? 200 : 404, contentType: 'application/json', body: r.request().url().endsWith('/index.json') ? idx : '{}' }));
+    const page = await ctx.newPage();
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(B);
+    await page.evaluate(() => {
+      localStorage.setItem('repobox.cfg', JSON.stringify({ repo: 'me/lib', token: 't', nonce: 'n' }));
+      localStorage.setItem('repobox.history', JSON.stringify([{ id: 'p1', repo: 'Fresh/Repo', lib: 'me/lib', at: new Date().toISOString(), state: 'pending' }]));
+    });
+    await page.reload(); await page.waitForTimeout(700);
+    expect('odd category names (constructor) render', errors.length === 0 && (await page.locator('#cats button').count()) === 14, errors.join(' | '));
+    const nav = await page.locator('#cats').boundingBox();
+    await page.mouse.move(nav.x + nav.width / 2, nav.y + Math.min(nav.height, 200) / 2);
+    for (let i = 0; i < 10; i += 1) await page.mouse.wheel(0, 300);
+    await page.waitForTimeout(300);
+    const last = await page.locator('#cats button').last().boundingBox();
+    expect('long category index scrolls to its last button', last && last.y + last.height <= 560, JSON.stringify(last));
+    await ctx.close();
+  }
   await browser.close(); close();
   console.log(failures.length ? `\n${failures.length} check(s) failed` : '\nall capture checks passed');
   process.exit(failures.length ? 1 : 0);

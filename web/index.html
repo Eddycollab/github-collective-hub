@@ -125,7 +125,7 @@
       .sheet { padding-top: 32px; padding-bottom: 28px; gap: 18px; }
       #add, .status { max-width: 760px; }
       .lib-body { flex-direction: row; gap: 28px; }
-      .cats { flex-direction: column; overflow: visible; width: 200px; gap: 2px; align-self: start; padding: 8px;
+      .cats { flex-direction: column; overflow-x: hidden; overflow-y: auto; max-height: 100%; width: 200px; gap: 2px; align-self: start; padding: 8px; flex-wrap: nowrap;
               background: var(--sheet); border: 1.5px solid var(--line); border-radius: 10px; -webkit-mask-image: none; mask-image: none; }
       .cats button { justify-content: space-between; border: 0; border-radius: 8px; padding: 6px 10px; background: transparent; }
       .cats button[aria-pressed="true"] { background: var(--cyan); }

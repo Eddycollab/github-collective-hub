@@ -8,6 +8,11 @@ export const CATEGORY_LABEL = { 'agent-framework': 'Agent 框架', 'mcp-server':
   'model-inference': '模型推論', 'data-processing': '資料處理', frontend: '前端', infrastructure: '基礎設施', game: '遊戲',
   'desktop-app': '桌面應用', other: '其他' };
 
+// Category names come from a user-edited taxonomy and from index.json, so never read inherited members.
+export function categoryLabel(key) {
+  return Object.hasOwn(CATEGORY_LABEL, key) ? CATEGORY_LABEL[key] : String(key ?? '');
+}
+
 export const STATE_TEXT = {
   empty: '書庫還是空的。分享一個 GitHub repo 給 RepoBox，分析完會出現在這裡。',
   'no-repo': '找不到收藏庫，或 token 沒有它的權限。請到設定確認收藏庫名稱與 token。',
@@ -99,20 +104,30 @@ export function specRows(lines) {
 const OS = [['Windows', /windows/i], ['macOS', /mac\s?os|macos|\bmac\b|apple silicon/i], ['Linux', /linux/i],
   ['iOS', /\bios\b|iphone|ipad/i], ['Android', /android/i]];
 
+// A match counts only when no negation (不支援、無法、不需、不按…) sits just before it.
+const NEGATION = /(不|無|免|非|沒有|沒)[^，,。；;、]{0,3}$/;
+function positive(text, re) {
+  const g = new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`);
+  for (const m of text.matchAll(g)) {
+    if (!NEGATION.test(text.slice(Math.max(0, m.index - 6), m.index))) return m.index;
+  }
+  return -1;
+}
+
 // Short card labels derived from the 使用門檻 lines; anything unrecognised yields no badge.
 export function badges(requirements) {
   const out = [];
   for (const [label, text] of specRows(Array.isArray(requirements) ? requirements : [])) {
     if (!label && /不需安裝/.test(text)) out.push('不需安裝');
     if (label === '平台') {
-      const os = OS.map(([name, re]) => [name, text.search(re)]).filter(([, at]) => at >= 0).sort((x, y) => x[1] - y[1]).map(([name]) => name);
+      const os = OS.map(([name, re]) => [name, positive(text, re)]).filter(([, at]) => at >= 0).sort((x, y) => x[1] - y[1]).map(([name]) => name);
       if (os.length >= 3) out.push('跨平台');
       else if (os.length) out.push(...os);
-      else if (/瀏覽器|網頁|web/i.test(text)) out.push('網頁');
+      else if (positive(text, /瀏覽器|網頁|web/i) >= 0) out.push('網頁');
     }
     if (label === '費用') {
-      if (/訂閱|月費|年費/.test(text)) out.push('訂閱');
-      else if (/用量|計費|使用費|按次/.test(text)) out.push('需付模型費');
+      if (positive(text, /訂閱|月費|年費/) >= 0) out.push('訂閱');
+      else if (positive(text, /用量|計費|使用費|按次/) >= 0) out.push('需付模型費');
       else if (/免費/.test(text)) out.push('免費');
     }
   }

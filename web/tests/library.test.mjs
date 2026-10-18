@@ -112,3 +112,20 @@ test('mergeLibrary passes tagline and requirements through, typed', () => {
   assert.equal(cd.tagline, '');
   assert.deepEqual(cd.requirements, []);
 });
+
+test('badges respect negation', async () => {
+  const { badges } = await import('../lib/library.mjs');
+  assert.deepEqual(badges(['費用：完全免費，不需訂閱']), ['免費']);
+  assert.deepEqual(badges(['費用：免費，不按用量計費']), ['免費']);
+  assert.deepEqual(badges(['平台：不支援 Windows，僅支援 Linux']), ['Linux']);
+  assert.deepEqual(badges(['平台：無法在 macOS 執行，需要 Windows']), ['Windows']);
+});
+
+test('categoryLabel never returns inherited object members', async () => {
+  const { categoryLabel } = await import('../lib/library.mjs');
+  assert.equal(categoryLabel('mcp-server'), 'MCP 伺服器');
+  assert.equal(categoryLabel('constructor'), 'constructor');
+  assert.equal(categoryLabel('toString'), 'toString');
+  assert.equal(categoryLabel('__proto__'), '__proto__');
+  assert.equal(categoryLabel(''), '');
+});

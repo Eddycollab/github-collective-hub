@@ -1,7 +1,7 @@
 'use strict';
 
 import { prepareSvg, rejectedNotice, wire, draft, mountLightbox } from './lib/diagram.mjs';
-import { parseStem, stemOf, ghRaw, loadIndex, specRows, STATE_TEXT, CATEGORY_LABEL } from './lib/library.mjs';
+import { parseStem, stemOf, ghRaw, loadIndex, specRows, categoryLabel, STATE_TEXT } from './lib/library.mjs';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
@@ -119,7 +119,7 @@ function renderRecord(cfg, stem, rec, svgRes, legacy) {
     const gh = el('a', 'gh', '在 GitHub 開啟 ↗'); gh.href = rec.url; gh.target = '_blank'; gh.rel = 'noopener';
     head.append(gh);
   }
-  $('tblock').replaceChildren(head, cell('分類', CATEGORY_LABEL[rec.category] || text(rec.category) || '—'), cell('授權', text(rec.license) || '—'),
+  $('tblock').replaceChildren(head, cell('分類', categoryLabel(text(rec.category)) || '—'), cell('授權', text(rec.license) || '—'),
     cell('語言', text(rec.language) || '—'), cell('收藏日', day(lastSeen(rec))));
   $('msg').hidden = true;
   $('tblock').hidden = false;

@@ -1,6 +1,6 @@
 'use strict';
 
-import { loadIndex, mergeLibrary, badges, STATE_TEXT, CATEGORY_LABEL } from './lib/library.mjs';
+import { loadIndex, mergeLibrary, badges, categoryLabel, STATE_TEXT } from './lib/library.mjs';
 
 const CFG_KEY = 'repobox.cfg';
 const RESERVED_OWNERS = new Set([
@@ -260,7 +260,7 @@ function renderLibrary() {
   if (!known.has(libFilter) || (libFilter === PENDING && !pending.length) || (libFilter === FAILED && !failed.length)) libFilter = '';
 
   const cats = [catButton('', '全部', entries.length)];
-  const label = (k) => CATEGORY_LABEL[k] || k;
+  const label = (k) => categoryLabel(k) || k;
   for (const [k, n] of [...counts].sort((a, b) => b[1] - a[1] || label(a[0]).localeCompare(label(b[0]), 'zh-Hant'))) cats.push(catButton(k, label(k), n));
   if (pending.length || failed.length) { const sep = document.createElement('i'); sep.className = 'sep'; cats.push(sep); }
   if (pending.length) cats.push(catButton(PENDING, '分析中', pending.length));
