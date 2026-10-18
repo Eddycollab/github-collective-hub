@@ -25,7 +25,7 @@
 
 ## Project-specific constraints（禁區與硬規則）
 
-- 收藏 repo 呼叫 `analyze.yml` 一律釘 40 字元 SHA，永不 `@main`——它拿得到私人 repo 寫入權與 Claude token；改了 pipeline 要手動換 SHA 才生效
+- 收藏 repo 呼叫 `analyze.yml` 一律釘 40 字元 SHA，永不 `@main`——它拿得到私人 repo 寫入權與 Claude token；改了 pipeline 要手動換 SHA 才生效，自己的 repobox-library 和公開的 repobox-library-template 兩處都要換
 - analyze job 裡的 Claude 不給 Bash／shell——runner 上 bwrap 起不來，且讀的是不可信 repo；需要執行的檢查由 workflow 跑再 `--resume` 回饋
 - 存 token 的網頁不載入任何第三方 JS
 - 沒過白名單的 SVG 不可經任何 blob:/data:/img URL 曝光，只顯示 rejectedNotice

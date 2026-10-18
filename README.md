@@ -41,26 +41,8 @@
 
 ### 2. 建收藏 repo
 
-1. 新建一個**私人** repo，名稱填 `repobox-library`，勾 **Add a README file**。
-2. 在裡面 **Add file → Create new file**，檔名填 `.github/workflows/repobox.yml`，貼上下面內容。`<帳號>` 換成你的帳號；`<SHA>` 到你 fork 的 **Commits** 頁，按最上面那筆的 **Copy full SHA** 貼上。
-
-   ```yaml
-   name: repobox
-   on:
-     push: { branches: [main], paths: ['inbox/*.json'] }
-     workflow_dispatch:
-       inputs:
-         url: { description: 'GitHub repo URL to (re)analyze; empty = process inbox', required: false, default: '' }
-   concurrency: { group: repobox, cancel-in-progress: false }
-   permissions: { contents: write }
-   jobs:
-     repobox:
-       uses: <帳號>/repobox/.github/workflows/analyze.yml@<SHA>
-       with: { url: '${{ inputs.url }}' }
-       secrets: { CLAUDE_CODE_OAUTH_TOKEN: '${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}' }
-   ```
-
-3. 在裝了 [Claude Code](https://claude.com/claude-code) 的終端機執行 `claude setup-token`，登入後會印出一串 token。到收藏 repo 的 **Settings → Secrets and variables → Actions → New repository secret**，名稱填 `CLAUDE_CODE_OAUTH_TOKEN`，貼上 token。
+1. 打開 [repobox-library-template](https://github.com/cholateio/repobox-library-template)，按 **Use this template → Create a new repository**，名稱填 `repobox-library`，選 **Private**。
+2. 在裝了 [Claude Code](https://claude.com/claude-code) 的終端機執行 `claude setup-token`，登入後會印出一串 token。到收藏 repo 的 **Settings → Secrets and variables → Actions → New repository secret**，名稱填 `CLAUDE_CODE_OAUTH_TOKEN`，貼上 token。
 
 ### 3. 每台裝置連一次
 
@@ -72,6 +54,7 @@
 
 - token 只存在你自己裝置的瀏覽器，只會送到 `api.github.com`。網頁不載入任何第三方程式碼。
 - 只分析公開 repo。Claude 讀的是陌生人的程式碼，所以當成不可信資料處理：它沒有 shell、只能寫一個暫存資料夾，產出要經過另一個不跑 Claude 的 job 重新檢查才會寫進你的 repo。
+- 收藏庫呼叫的分析流程釘在固定版本（commit SHA），本 repo 之後的改動不會自動跑進你的收藏庫。想自己改流程，就 fork 後把 `.github/workflows/repobox.yml` 的 `uses:` 換成你的 repo 和 SHA。
 - 架構圖在顯示前會再過一次白名單，有問題的圖只顯示提示，不會被執行。
 - 建議幫收藏網頁綁一個自訂子網域：同一個 `<帳號>.github.io` 底下的其他網站讀得到這個網頁存的 token。
 

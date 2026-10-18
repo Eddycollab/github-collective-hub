@@ -39,7 +39,7 @@
 |---|---|---|
 | 收藏網頁 | 公開 repo `repobox` 的 GitHub Pages（各人用自己 fork 的那份） | Android 分享目標、貼上連結、書籤落地頁 |
 | 分析 Action | 公開 repo `repobox` 的 reusable workflow（`.github/workflows/analyze.yml`）與 `action/` 腳本，跑在使用者的 Actions | 處理 inbox、寫回 library |
-| 收藏 repo | 使用者的 GitHub（私人），空 repo 加一個約 20 行的 stub workflow，以 commit SHA 引用分析 Action | 資料本體 |
+| 收藏 repo | 使用者的 GitHub（私人），從範本 repo 建立，內含約 20 行的 stub workflow，以 commit SHA 引用分析 Action | 資料本體 |
 | arch-blueprint | 公開 repo `cholateio/arch-blueprint`，Action 釘 commit 後 `git fetch` 下來，設成唯讀 | 畫架構圖 |
 
 開發者只維護 `repobox` 一個公開 repo（網頁加 Action），不另設 template repo。token 只存在使用者自己網頁的瀏覽器本地。
@@ -49,7 +49,7 @@
 ## 安裝
 
 0. **（別人才需要）** fork `repobox`，在 Settings → Pages 開啟。
-1. **建立收藏 repo：** 建一個空的私人 repo，commit stub workflow `.github/workflows/repobox.yml`（內容見 `repobox` 的 README；`uses:` 必須是 40 字元 commit SHA，不能是分支名）。`taxonomy.yml`、`README.md`、`index.json` 由第一次 publish 自動建立。
+1. **建立收藏 repo：** 從公開範本 `cholateio/repobox-library-template` 按 Use this template 建私人 repo。範本只有 stub workflow（`uses:` 釘上游 `cholateio/repobox` 的 40 字元 commit SHA，不能是分支名）、預設 `taxonomy.yml` 和幾句說明的 `README.md`；README 與 `index.json` 由第一次 publish 覆寫／建立。想改分析流程的人 fork 後把 `uses:` 換成自己的 repo 和 SHA。
 2. **連結 Claude 訂閱：** 本機執行 `claude setup-token`，把結果存成 repo secret `CLAUDE_CODE_OAUTH_TOKEN`。
    v1 只接訂閱 token；API key 等有人需要再接。
 3. **連結裝置：** 產生一支 fine-grained token（只限這個 repo、Contents 讀寫），在每台裝置的收藏網頁貼上一次。
