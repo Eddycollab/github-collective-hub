@@ -35,3 +35,6 @@ __pycache__/
 # Windows download marker
 *:Zone.Identifier
 .al
+
+# Local agent scratch (plans in flight, prototypes)
+.superpowers/
