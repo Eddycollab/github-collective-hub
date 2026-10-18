@@ -58,6 +58,43 @@ const INDEX = fs.readFileSync(path.join(__dirname, 'fixtures/index.json'), 'utf8
   await run('index bad JSON', { status: 200, body: '{broken' }, 200, async ({ rows, note, label }) => {
     expect(`${label}: bad-data note + pending`, note.includes('格式錯誤') && rows.length === 1, `${rows} | ${note}`);
   });
+  {
+    // A slow index for the old repo must not overwrite the list after switching repos.
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const errors = [];
+    const libB = JSON.stringify({ entries: [{ repo: 'Bee/Only', md: 'library/bee__only.md', intro: 'b', category: 'other', last_seen: '2026-10-19T00:00:00Z' }] });
+    await ctx.route('https://api.github.com/**', async (r) => {
+      const u = r.request().url();
+      if (u.endsWith('/repos/me/lib/contents/index.json')) { await new Promise((res) => setTimeout(res, 1500)); return r.fulfill({ status: 200, contentType: 'application/json', body: INDEX }); }
+      if (u.endsWith('/repos/me/other/contents/index.json')) return r.fulfill({ status: 200, contentType: 'application/json', body: libB });
+      return r.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    const page = await ctx.newPage();
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(B);
+    await page.evaluate(() => localStorage.setItem('repobox.cfg', JSON.stringify({ repo: 'me/lib', token: 't', nonce: 'n' })));
+    await page.reload(); await page.waitForTimeout(200);
+    await page.click('#conn'); await page.fill('#repo', 'me/other'); await page.click('#settings button[type=submit]');
+    await page.waitForTimeout(2200);
+    const rows = await page.$$eval('#recent li', (lis) => lis.map((li) => li.textContent.trim()));
+    expect('switching repos ignores the late old index', rows.length === 1 && rows[0].includes('Bee/Only'), rows.join(' / '));
+    expect('switching repos: no page errors', errors.length === 0, errors.join(' | '));
+    await ctx.close();
+  }
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const errors = [];
+    const broken = JSON.stringify({ entries: [null, 5, ...JSON.parse(INDEX).entries] });
+    await ctx.route('https://api.github.com/**', (r) => r.fulfill({ status: r.request().url().endsWith('/index.json') ? 200 : 404, contentType: 'application/json', body: r.request().url().endsWith('/index.json') ? broken : '{}' }));
+    const page = await ctx.newPage();
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(B);
+    await page.evaluate(() => localStorage.setItem('repobox.cfg', JSON.stringify({ repo: 'me/lib', token: 't', nonce: 'n' })));
+    await page.reload(); await page.waitForTimeout(700);
+    const n = await page.locator('#recent li a').count();
+    expect('malformed index rows are skipped, the rest render', n === 3 && errors.length === 0, `rows=${n} errors=${errors.join(' | ')}`);
+    await ctx.close();
+  }
   await browser.close(); close();
   console.log(failures.length ? `\n${failures.length} check(s) failed` : '\nall capture checks passed');
   process.exit(failures.length ? 1 : 0);

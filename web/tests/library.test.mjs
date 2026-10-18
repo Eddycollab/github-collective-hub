@@ -84,3 +84,9 @@ test('loadIndex maps every outcome to a state', async () => {
     assert.ok(STATE_TEXT[got.state] || got.state === 'ok');
   }
 });
+
+test('mergeLibrary drops malformed index entries instead of throwing', () => {
+  const index = { entries: [null, 5, 'x', { repo: 3, md: 'library/a__b.md' }, { repo: 'A/B', md: 7 }, ...INDEX.entries] };
+  const items = mergeLibrary(index, [], 'me/lib');
+  assert.deepEqual(items.map((i) => i.stem), ['new__two', 'old__one']);
+});

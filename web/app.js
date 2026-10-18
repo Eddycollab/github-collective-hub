@@ -203,12 +203,19 @@ function historyFor(cfg) {
 }
 
 // The list shows the whole library (index.json) plus local captures still being analyzed.
-const lib = { state: 'ok', index: null };
+const lib = { state: 'ok', index: null, repo: null };
+let libSeq = 0;
 
+// Only the latest request for the currently configured repo may update the list.
 async function loadLib() {
   const cfg = loadCfg();
-  if (!cfg || !cfg.token) { lib.state = 'ok'; lib.index = null; renderLibrary(); return; }
-  Object.assign(lib, await loadIndex(cfg));
+  const seq = ++libSeq;
+  if (!cfg || !cfg.token) { Object.assign(lib, { state: 'ok', index: null, repo: null }); renderLibrary(); return; }
+  if (lib.repo !== cfg.repo) { Object.assign(lib, { state: 'ok', index: null, repo: cfg.repo }); renderLibrary(); }
+  const result = await loadIndex(cfg);
+  const now = loadCfg();
+  if (seq !== libSeq || !now || now.repo !== cfg.repo) return;
+  Object.assign(lib, result, { repo: cfg.repo });
   renderLibrary();
 }
 
@@ -229,7 +236,8 @@ function renderLibrary() {
   const cfg = loadCfg();
   const note = $('lib-note');
   note.textContent = lib.state === 'ok' || lib.state === 'empty' ? '' : STATE_TEXT[lib.state];
-  const items = cfg ? mergeLibrary(lib.index, historyFor(cfg), cfg.repo) : [];
+  const index = cfg && lib.repo === cfg.repo ? lib.index : null;
+  const items = cfg ? mergeLibrary(index, historyFor(cfg), cfg.repo) : [];
   if (!items.length) {
     const li = document.createElement('li');
     li.className = 'empty';

@@ -74,8 +74,10 @@ export async function loadIndex(cfg, fetchImpl = fetch) {
 const time = (iso) => { const t = Date.parse(iso); return Number.isNaN(t) ? 0 : t; };
 
 export function mergeLibrary(index, history, lib) {
+  const str = (v) => (typeof v === 'string' ? v : '');
   const entries = (index && Array.isArray(index.entries) ? index.entries : [])
-    .map((e) => ({ kind: 'entry', stem: stemOf(e && e.md), repo: String(e.repo || ''), intro: e.intro || '', category: e.category || '', last_seen: e.last_seen || '' }))
+    .filter((e) => e && typeof e === 'object' && typeof e.repo === 'string' && typeof e.md === 'string')
+    .map((e) => ({ kind: 'entry', stem: stemOf(e.md), repo: e.repo, intro: str(e.intro), category: str(e.category), last_seen: str(e.last_seen) }))
     .filter((e) => e.stem && e.repo)
     .sort((a, b) => time(b.last_seen) - time(a.last_seen));
   const known = new Set(entries.map((e) => e.repo.toLowerCase()));
