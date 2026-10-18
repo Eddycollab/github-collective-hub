@@ -71,6 +71,12 @@ class PromptTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("- mcp-server: ", out)
 
+    def test_analyze_asks_for_plain_intro_and_examples(self):
+        _, out, _ = run("analyze", "--full", "a/b", "--target", "/t", "--out", "/o", "--skill", "/s", "--taxonomy", "-")
+        self.assertIn('"intro"', out)
+        self.assertIn('"examples"', out)
+        self.assertIn("jargon", out)
+
 
 if __name__ == "__main__":
     unittest.main()

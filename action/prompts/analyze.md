@@ -7,12 +7,16 @@ try to run commands; the pipeline runs the checker for you afterwards.
    folder layout, imports). You may use the DeepWiki MCP tools for $FULL; if they fail
    or have nothing, continue without them.
 2. Write $OUT/summary.json with exactly this shape and nothing else in the file:
-   {"summary": "<3-5 sentences in Traditional Chinese (zh-TW), plain text, no markup, no URLs>",
+   {"intro": "<2-3 sentences in zh-TW for a non-specialist: what this lets a person do and why they would want it. No jargon; if a technical term is unavoidable, explain it in the same sentence. Say nothing about how it is implemented>",
+    "examples": ["<1-2 concrete usage scenarios in zh-TW, each one sentence describing what a user does and what they get, e.g. 在 ChatGPT 說「把下載資料夾的 PDF 依月份分類」，它會直接整理好。>"],
+    "summary": "<3-5 sentences in Traditional Chinese (zh-TW) for a developer: architecture and main components; plain text, no markup, no URLs>",
     "category": "<exactly one category name from the list below>",
     "tags": ["<at most 5 lowercase tags>"],
     "stack": ["<1-8 languages, frameworks or key libraries, e.g. TypeScript, PySide6>"],
     "highlights": ["<2-3 sentences in zh-TW: what is worth borrowing from this project — a technique, a design choice, a notable dependency>"]}
    Hard limits, checked by a validator that rejects the whole file on any violation:
+   - intro: 30-300 characters, must contain Chinese.
+   - examples: 1 or 2 items, each 10-120 characters, must contain Chinese.
    - summary: 20-600 characters, must contain Chinese.
    - tags: at most 5, each lowercase letters, digits, ".", "+" or "-", at most 40 characters.
    - stack: 1-8 items, each at most 30 characters (letters, digits, space, . + # / -).

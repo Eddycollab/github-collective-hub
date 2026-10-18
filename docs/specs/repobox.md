@@ -122,19 +122,18 @@ analyzed_at: 2026-10-17T10:24:01+00:00
 analysis: { model: claude-opus-5-5, turns: 21, wall_s: 217, rounds: 0, deepwiki: false, diagram: true }
 ---
 <!-- repobox:auto:start -->
-## 摘要
+## 這是什麼          白話介紹（給人看，不用專有名詞）＋ 1–2 個「例如」使用情境
+## 技術摘要          給開發者看的架構說明
 ## 值得借鏡
 ## 技術棧
 ## 架構圖
 ![architecture](owner__repo.svg)
 <!-- repobox:auto:end -->
-
-## 我的筆記
 ```
 
 - 去重以 `repo_id` 為準，repo 改名或轉移也不會變成兩篇（沿用舊檔名，只更新 frontmatter 的 `repo`、`url`）。
 - sighting 以 `id`（收藏檔名）為身分，重跑同一批不會重複追加。
-- Action 只改 frontmatter 與 auto 標記之間的內容；第一個 end 標記之後屬於使用者，逐 byte 保留。
+- Action 只改 frontmatter 與 auto 標記之間的內容；不再產生「我的筆記」區（2026-10-18 使用者決定拿掉），但 end 標記之後若有人手寫內容，仍逐 byte 保留。
 - 來自模型或 GitHub metadata 的文字一律轉成純文字並跳脫 Markdown；裸網址與 email 包成 code span，不會變成可點的連結。
 - 同一個 repo 再收一次：只追加一筆 `sightings` 並更新星數，不重畫圖。重新分析靠 `workflow_dispatch`。
 - 內文只用標準 Markdown，不用 `[[wikilink]]` 等 Obsidian 專屬語法。
@@ -153,7 +152,7 @@ analysis: { model: claude-opus-5-5, turns: 21, wall_s: 217, rounds: 0, deepwiki:
 2. **分析（Claude Code，用訂閱）：**
    - 由腳本先對目標 repo 做淺層 clone。Claude 不自己發網路請求，DeepWiki MCP 除外。
    - 參考資料：clone 下來的程式碼、README，以及 DeepWiki MCP（`https://mcp.deepwiki.com/mcp`，免費、免登入、只支援公開 repo）。DeepWiki 是選用的，查不到照樣跑。
-   - 輸出 `out/summary.json`：`summary`（20–600 字、含中文）、`category`（taxonomy 之一）、`tags`（≤5，小寫）、`stack`（1–8 項）、`highlights`（2–3 句、每句 10–120 字、含中文）。限制寫在提示詞裡。
+   - 輸出 `out/summary.json`：`intro`（30–300 字白話介紹）、`examples`（1–2 個使用情境、每個 10–120 字）、`summary`（20–600 字、含中文）、`category`（taxonomy 之一）、`tags`（≤5，小寫）、`stack`（1–8 項）、`highlights`（2–3 句、每句 10–120 字、含中文）。限制寫在提示詞裡。
    - 輸出 `out/diagram.svg`：照 arch-blueprint 畫，提示詞要求跳過確認步、改為檢查每個節點都對應到實際路徑。
    - 修正迴圈：Claude 沒有 shell。summary 不合格 → 把驗證錯誤交回同一個對話（`--resume`）修一次；`check.py` 不過 → 把錯誤交回修，最多 2 輪。
 3. **驗證與寫回（腳本，獨立 job）：**

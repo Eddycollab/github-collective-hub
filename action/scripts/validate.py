@@ -17,7 +17,7 @@ import taxonomy
 CJK = re.compile(r"[一-鿿]")
 TAG_RE = re.compile(r"^[a-z0-9][a-z0-9.+-]{0,39}$")
 STACK_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 .+#/-]{0,29}$")
-SUMMARY_KEYS = {"summary", "category", "tags", "stack", "highlights"}
+SUMMARY_KEYS = {"intro", "examples", "summary", "category", "tags", "stack", "highlights"}
 SVG_MAX_BYTES = 2 * 1024 * 1024
 
 # Everything arch-blueprint's example and icon library use, plus a few harmless shape/text
@@ -56,6 +56,13 @@ def validate_summary(text: str, categories: list[str]) -> list[str]:
     errors = []
     if set(data) != SUMMARY_KEYS:
         errors.append(f"keys must be exactly {sorted(SUMMARY_KEYS)}, got {sorted(data)}")
+    intro = data.get("intro")
+    if not (isinstance(intro, str) and 30 <= len(intro) <= 300 and CJK.search(intro)):
+        errors.append("intro: 30-300 chars of plain Traditional Chinese")
+    ex = data.get("examples")
+    if not (isinstance(ex, list) and 1 <= len(ex) <= 2
+            and all(isinstance(e, str) and 10 <= len(e) <= 120 and CJK.search(e) for e in ex)):
+        errors.append("examples: 1-2 Chinese sentences of 10-120 chars")
     summary = data.get("summary")
     if not (isinstance(summary, str) and 20 <= len(summary) <= 600 and CJK.search(summary)):
         errors.append("summary: 20-600 chars with Traditional Chinese text")

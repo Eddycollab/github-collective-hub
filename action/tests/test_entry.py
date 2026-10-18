@@ -11,6 +11,7 @@ META = {
     "description": "A <b>tool</b>", "language": "Python", "stargazers_count": 7, "license": None,
 }
 ANALYSIS = {
+    "intro": "一個給人用的白話介紹，說明這個工具能幫你做什麼事情，以及為什麼你會想用它。", "examples": ["用它來整理下載資料夾裡的檔案。", "用它來幫專案自動寫測試。"],
     "summary": "這是一個工具，用來測試條目產生是否正確。", "category": "dev-tool", "tags": ["cli"],
     "stack": ["Python", "C#"], "highlights": ["第一個值得借鏡的地方。", "第二個值得借鏡的地方。"],
 }
@@ -170,6 +171,25 @@ class EntryTest(unittest.TestCase):
         outside = re.sub(r"`[^`]*`", "", out)
         self.assertNotIn("](http", outside)
         self.assertNotIn("http", outside)
+
+    def test_render_puts_intro_first_with_examples(self):
+        text = entry.render_entry(self.fm, ANALYSIS, None, None)
+        self.assertLess(text.index("## 這是什麼"), text.index("## 技術摘要"))
+        self.assertIn("- **例如**：用它來整理下載資料夾裡的檔案。", text)
+        self.assertNotIn("## 摘要\n", text)
+
+    def test_render_has_no_notes_section(self):
+        text = entry.render_entry(self.fm, ANALYSIS, None, None)
+        self.assertNotIn("我的筆記", text)
+        self.assertTrue(text.endswith(entry.END + "\n"))
+
+    def test_legacy_empty_notes_heading_is_dropped(self):
+        text = entry.render_entry(self.fm, ANALYSIS, None, "\n## 我的筆記\n\n")
+        self.assertNotIn("我的筆記", text)
+
+    def test_real_user_text_after_end_is_kept(self):
+        text = entry.render_entry(self.fm, ANALYSIS, None, "\n## 我的筆記\n- 有寫東西\n")
+        self.assertIn("- 有寫東西", text)
 
 
 if __name__ == "__main__":

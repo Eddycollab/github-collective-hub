@@ -54,6 +54,14 @@ class SummaryTest(unittest.TestCase):
         self.assertTrue(validate.validate_summary("[1, 2]", CATS))
         self.assertTrue(validate.validate_summary("not json", CATS))
 
+    def test_summary_requires_intro_and_examples(self):
+        d = {k: v for k, v in OK.items() if k != "intro"}
+        self.assertTrue(validate.validate_summary(json.dumps(d, ensure_ascii=False), CATS))
+        self.assertTrue(validate.validate_summary(summary_with(intro="Plain English intro that is long enough to pass."), CATS))
+        self.assertTrue(validate.validate_summary(summary_with(examples=[]), CATS))
+        self.assertTrue(validate.validate_summary(summary_with(examples=["例如一。", "例如二二。", "例如三三三。"]), CATS))
+        self.assertTrue(validate.validate_summary(summary_with(examples=["例如" + "很長" * 70]), CATS))
+
 
 class SvgTest(unittest.TestCase):
     def test_svg_ok_example_passes(self):

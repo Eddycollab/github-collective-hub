@@ -1,6 +1,6 @@
 # RepoBox（暫名）
 
-在手機或電腦上滑到 GitHub 專案時一鍵收進自己的私人 repo，由 GitHub Actions 用自己的 Claude 訂閱產生摘要、分類、值得借鏡的重點與架構圖。結果是純 Markdown 加 SVG，在 GitHub、Obsidian、VS Code 都能讀。
+在手機或電腦上滑到 GitHub 專案時一鍵收進自己的私人 repo，由 GitHub Actions 用自己的 Claude 訂閱產生白話介紹與使用例子、技術摘要、分類、值得借鏡的重點與架構圖。結果是純 Markdown 加 SVG，在 GitHub、Obsidian、VS Code 都能讀。
 
 想用的人請 fork 自用；本專案不提供共用網站，也不代管任何資料或金鑰。設計與決策見 [`docs/specs/repobox.md`](docs/specs/repobox.md)。
 
@@ -35,7 +35,6 @@
 - 同一個 repo 再收一次只記「又看到一次」，不重跑分析。
 - 想重新分析：Actions → repobox → Run workflow，填網址。留空則處理 inbox 裡所有待處理的收藏。
 - 失敗的收藏在 `inbox/failed/`，裡面寫了原因。
-- 條目裡「## 我的筆記」以下是你的，Action 永遠不會改。
 
 ## 隱私
 

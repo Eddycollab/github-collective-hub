@@ -1,7 +1,7 @@
 """Library entries (library/<slug>.md): rendering, parsing, lookup by repo_id, sightings.
 
-The pipeline owns the frontmatter and the text between START and END; everything after the
-first END belongs to the user and is preserved byte for byte.
+The pipeline owns the frontmatter and the text between START and END. Anything a user writes
+after the first END is preserved byte for byte; no notes heading is generated any more.
 """
 from __future__ import annotations
 
@@ -14,7 +14,9 @@ import yaml
 
 START = "<!-- repobox:auto:start -->"
 END = "<!-- repobox:auto:end -->"
-USER_DEFAULT = "\n## 我的筆記\n\n"
+USER_DEFAULT = "\n"
+# Entries rendered before 2026-10-18 carried an empty notes heading; it is dropped on rewrite.
+LEGACY_EMPTY_NOTES = "## 我的筆記"
 NOTE_MAX = 500
 _TAG = re.compile(r"<[^>]*>", re.S)
 _MD_SPECIAL = re.compile(r"([\\`*_\[\]()#!|~])")
@@ -129,7 +131,9 @@ def build_frontmatter(meta: dict, analysis: dict | None, sightings: list[dict], 
 
 def _auto_block(analysis: dict, svg_name: str | None) -> str:
     parts = [
-        "\n## 摘要\n\n" + safe_text(analysis["summary"]) + "\n",
+        "\n## 這是什麼\n\n" + safe_text(analysis["intro"]) + "\n\n"
+        + "".join(f"- **例如**：{safe_text(e)}\n" for e in analysis["examples"]),
+        "\n## 技術摘要\n\n" + safe_text(analysis["summary"]) + "\n",
         "\n## 值得借鏡\n\n" + "".join(f"- {safe_text(h)}\n" for h in analysis["highlights"]),
         "\n## 技術棧\n\n" + " · ".join(safe_text(s) for s in analysis["stack"]) + "\n",
     ]
@@ -146,6 +150,8 @@ def render_entry(fm: dict, analysis: dict | None, svg_name: str | None, user_sec
         block = auto
     else:
         raise ValueError("render_entry needs either analysis or the previous auto block")
+    if user_section is not None and user_section.strip() == LEGACY_EMPTY_NOTES:
+        user_section = None
     head = "---\n" + yaml.safe_dump(fm, allow_unicode=True, sort_keys=False, width=1000) + "---\n"
     text = head + START + block + END + (user_section if user_section is not None else USER_DEFAULT)
     if text.count(START) != 1 or text.count(END) != 1 or text.index(START) > text.index(END):
