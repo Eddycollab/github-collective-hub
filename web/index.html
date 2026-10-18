@@ -125,10 +125,35 @@
     dialog input { width: 100%; min-height: 44px; padding: 0 12px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--field); }
     .drawer-actions { display: flex; gap: 8px; margin-top: 14px; }
     .drawer-actions .btn { flex: 1; }
-    .desk { margin-top: 18px; padding-top: 12px; border-top: 1.5px dashed var(--grid-major); }
-    @media (pointer: coarse) { .desk { display: none; } }
+    .desk { display: none; }
     a.bm { display: inline-block; padding: 8px 14px; border: 2px dashed var(--line); border-radius: 10px;
-           color: inherit; text-decoration: none; font-weight: 600; }
+           color: inherit; text-decoration: none; font-weight: 600; background: var(--field); cursor: grab;
+           white-space: nowrap; flex: none; }
+    a.bm:not([href]) { cursor: default; color: var(--mute); border-color: var(--mute); }
+
+    /* Desktop: two columns inside one screen; the bookmarklet is the main desktop path. */
+    @media (min-width: 900px) {
+      .sheet {
+        max-width: 1080px; display: grid; gap: 18px 40px;
+        grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+        grid-template-rows: auto 1fr auto auto auto auto 1fr;
+        padding-top: 28px; padding-bottom: 28px;
+      }
+      header { grid-column: 1 / -1; }
+      .block { grid-column: 1; grid-row: 3; }
+      #paste { grid-column: 1; grid-row: 4; }
+      #add { grid-column: 1; grid-row: 5; }
+      .desk { grid-column: 1; grid-row: 6; align-self: start; display: flex; align-items: center; gap: 14px;
+              padding-top: 16px; border-top: 1.5px dashed var(--grid-major); }
+      .desk p { margin: 0; font-size: 14px; color: var(--mute); }
+      .recent { grid-column: 2; grid-row: 3 / 7; }
+      .block .repo { font-size: 32px; }
+      .block .cell { padding: 10px 16px; }
+      #hint { padding: 9px 16px 10px; }
+      dialog { margin: auto; border-bottom: 2px solid var(--line); border-radius: 16px; max-height: 86dvh;
+               padding: 22px 24px; }
+    }
+    @media (min-width: 900px) and (pointer: coarse) { .desk { display: none; } }
     details { margin-top: 14px; font-size: 13px; color: var(--mute); }
     pre { white-space: pre-wrap; word-break: break-all; font-size: 12px; margin: 6px 0 0; }
 
@@ -173,6 +198,11 @@
       <button class="btn small" type="submit">收藏</button>
     </form>
 
+    <section class="desk" aria-label="電腦書籤">
+      <a id="bookmarklet" class="bm" href="#">收進 RepoBox</a>
+      <p>把這顆按鈕拖到書籤列，之後在 GitHub repo 頁面按一下就收下。</p>
+    </section>
+
     <section class="recent">
       <div class="recent-head">
         <h2>最近收藏</h2>
@@ -195,11 +225,6 @@
         <button class="btn primary" type="submit">儲存</button>
       </div>
     </form>
-    <div class="desk">
-      <h2>電腦書籤</h2>
-      <p>把這顆按鈕拖到書籤列，在 GitHub repo 頁面按一下就收下。</p>
-      <a id="bookmarklet" class="bm" href="#">收進 RepoBox</a>
-    </div>
     <details>
       <summary>最後一次收到的分享內容</summary>
       <pre id="received">（沒有）</pre>
