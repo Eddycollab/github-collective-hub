@@ -4,6 +4,7 @@ from pathlib import Path
 import entry
 
 ANALYSIS = {
+    "tagline": "測試用的一句白話副標",
     "intro": "一個給人用的白話介紹，說明這個工具能幫你做什麼事情，以及為什麼你會想用它。", "examples": ["用它來整理下載資料夾裡的檔案。", "用它來幫專案自動寫測試。"],
     "requirements": ["平台：只支援 Windows", "費用：免費"],
     "summary": "這是一個用來測試的專案，說明寫得夠長才會通過驗證。", "category": "dev-tool", "tags": ["cli", "test"],

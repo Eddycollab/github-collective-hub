@@ -71,6 +71,13 @@ class SummaryTest(unittest.TestCase):
         self.assertTrue(validate.validate_summary(summary_with(requirements=["平台" + "很長" * 60]), CATS))
         self.assertEqual(validate.validate_summary(summary_with(requirements=["不需安裝，直接閱讀"]), CATS), [])
 
+    def test_summary_tagline_rules(self):
+        d = {k: v for k, v in OK.items() if k != "tagline"}
+        self.assertTrue(validate.validate_summary(json.dumps(d, ensure_ascii=False), CATS))
+        self.assertTrue(validate.validate_summary(summary_with(tagline="短"), CATS))
+        self.assertTrue(validate.validate_summary(summary_with(tagline="這句副標寫得實在太長了已經超過二十個字的上限"), CATS))
+        self.assertTrue(validate.validate_summary(summary_with(tagline="English only tagline"), CATS))
+
 
 class SvgTest(unittest.TestCase):
     def test_svg_ok_example_passes(self):

@@ -94,6 +94,12 @@ class IndexTest(unittest.TestCase):
         data = json.loads(index.render_index(index.collect(self.lib)))
         self.assertTrue(data["entries"][0]["intro"])
 
+    def test_index_entries_include_tagline_and_requirements(self):
+        write_entry(self.lib, "A/One", 1)
+        e = json.loads(index.render_index(index.collect(self.lib)))["entries"][0]
+        self.assertTrue(e["tagline"])
+        self.assertTrue(e["requirements"])
+
 
 if __name__ == "__main__":
     unittest.main()

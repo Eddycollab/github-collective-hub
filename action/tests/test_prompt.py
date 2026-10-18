@@ -82,6 +82,11 @@ class PromptTest(unittest.TestCase):
         self.assertIn('"requirements"', out)
         self.assertIn("不需安裝", out)
 
+    def test_analyze_asks_for_tagline(self):
+        _, out, _ = run("analyze", "--full", "a/b", "--target", "/t", "--out", "/o", "--skill", "/s", "--taxonomy", "-")
+        self.assertIn('"tagline"', out)
+        self.assertIn("4-20", out)
+
 
 if __name__ == "__main__":
     unittest.main()

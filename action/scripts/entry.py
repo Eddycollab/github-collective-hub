@@ -24,7 +24,7 @@ _MD_SPECIAL = re.compile(r"([\\`*_\[\]()#!|~])")
 # GFM autolinks bare URLs and emails even without link syntax; these go into code spans.
 _AUTOLINK = re.compile(r"(?:https?://|www\.)\S+|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", re.I)
 # Full record: written to the hidden sidecar library/<stem>.json.
-READING_KEYS = ("intro", "examples", "requirements", "summary", "highlights")
+READING_KEYS = ("tagline", "intro", "examples", "requirements", "summary", "highlights")
 FM_KEYS = ("repo", "repo_id", "url", "description", "language", "stars", "stars_at", "license", "category",
            "tags", "stack", *READING_KEYS, "sightings", "analyzed_at", "analysis")
 # Visible table: GitHub renders every frontmatter key, so only human-facing fields go here.
@@ -195,6 +195,7 @@ def build_frontmatter(meta: dict, analysis: dict | None, sightings: list[dict], 
 
 def _auto_block(analysis: dict, svg_name: str | None) -> str:
     parts = [
+        "\n> " + safe_text(analysis["tagline"]) + "\n",
         "\n## 這是什麼\n\n" + safe_text(analysis["intro"]) + "\n\n"
         + "".join(f"- **例如**：{safe_text(e)}\n" for e in analysis["examples"]),
         "\n## 使用門檻\n\n" + "".join(f"- {safe_text(r)}\n" for r in analysis["requirements"]),

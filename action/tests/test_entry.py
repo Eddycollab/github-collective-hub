@@ -12,6 +12,7 @@ META = {
     "description": "A <b>tool</b>", "language": "Python", "stargazers_count": 7, "license": None,
 }
 ANALYSIS = {
+    "tagline": "測試用的一句白話副標",
     "intro": "一個給人用的白話介紹，說明這個工具能幫你做什麼事情，以及為什麼你會想用它。", "examples": ["用它來整理下載資料夾裡的檔案。", "用它來幫專案自動寫測試。"],
     "requirements": ["平台：只支援 Windows", "費用：免費"],
     "summary": "這是一個工具，用來測試條目產生是否正確。", "category": "dev-tool", "tags": ["cli"],
@@ -115,7 +116,7 @@ class EntryTest(unittest.TestCase):
     def test_frontmatter_key_order_and_license_none(self):
         self.assertEqual(list(self.fm), [
             "repo", "repo_id", "url", "description", "language", "stars", "stars_at", "license", "category",
-            "tags", "stack", "intro", "examples", "requirements", "summary", "highlights", "sightings",
+            "tags", "stack", "tagline", "intro", "examples", "requirements", "summary", "highlights", "sightings",
             "analyzed_at", "analysis",
         ])
         self.assertEqual(self.fm["stars_at"], "2026-10-18")
@@ -303,6 +304,12 @@ class EntryTest(unittest.TestCase):
         disp = entry.display_frontmatter(self.fm)
         for k in entry.READING_KEYS:
             self.assertNotIn(k, disp)
+
+    def test_record_and_render_carry_tagline(self):
+        self.assertEqual(self.fm["tagline"], ANALYSIS["tagline"])
+        text = entry.render_entry(self.fm, ANALYSIS, None, None)
+        self.assertIn("> " + ANALYSIS["tagline"], text)
+        self.assertLess(text.index("> " + ANALYSIS["tagline"]), text.index("## 這是什麼"))
 
 
 if __name__ == "__main__":

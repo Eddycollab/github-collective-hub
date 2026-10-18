@@ -15,7 +15,7 @@ TAG_RE = re.compile(r"^[a-z0-9][a-z0-9.+-]{0,39}$")
 DESC_MAX = 160
 RECENT_N = 10
 UNCATEGORIZED = "未分類"
-INDEX_FIELDS = ("repo", "repo_id", "url", "description", "intro", "language", "stars", "license", "category",
+INDEX_FIELDS = ("repo", "repo_id", "url", "description", "tagline", "intro", "requirements", "language", "stars", "license", "category",
                 "tags", "stack", "analyzed_at")
 
 
