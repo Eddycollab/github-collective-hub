@@ -18,10 +18,9 @@
     html, body { height: 100%; }
     body {
       margin: 0; overflow: hidden; color: var(--ink); font: 16px/1.5 var(--sans); background-color: var(--paper);
-      background-image:
-        linear-gradient(var(--grid-major) 1px, transparent 1px), linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
-        linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-      background-size: 40px 40px, 40px 40px, 8px 8px, 8px 8px;
+      /* One soft 40px grid: the dense 8px layer read as noise behind text (user feedback 2026-10-19). */
+      background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 40px 40px;
     }
     .sheet {
       height: 100dvh; max-width: 1180px; margin: 0 auto;

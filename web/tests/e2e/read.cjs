@@ -52,6 +52,14 @@ const SHOTS = process.env.SHOTS || '';
   expect('(a) diagram inlined with nodes', m.nodes > 0, JSON.stringify(m));
   expect('(a) title is the repo', (await o.page.title()).startsWith('XiaoPuOuO/openchatx-mcp'), await o.page.title());
   expect('(a) tagline under the repo name', (await o.page.textContent('.tblock .sub').catch(() => '')) === '用 ChatGPT 直接操作你的電腦', 'missing');
+  const lay = await o.page.evaluate(() => ({ bar: document.querySelector('.tblock').getBoundingClientRect().height,
+    panel: document.querySelector('.more').getBoundingClientRect().height, clipped: (() => { const p = document.querySelector('.panel'); return p.scrollHeight - p.clientHeight; })(), egs: [...document.querySelectorAll('.eg')].filter((e) => e.offsetParent).length,
+    back: !!document.querySelector('.tblock a.back') }));
+  expect('(a) top bar is one row with the back link', lay.bar <= 56 && lay.back, JSON.stringify(lay));
+  expect('(a) tab box has room (>= 200px) and its content is not cut off', lay.panel >= 200 && lay.clipped <= 0, JSON.stringify(lay));
+  expect('(a) one example shown, the rest behind a button', lay.egs === 1 && (await o.page.locator('button.more-eg').count()) === 1, JSON.stringify(lay));
+  await o.page.click('button.more-eg');
+  expect('(a) the button reveals the other example', (await o.page.locator('.eg:visible').count()) === 2, 'still hidden');
   await o.page.click('.fig'); await o.page.waitForTimeout(400);
   expect('(h) clicking the figure opens the lightbox', await o.page.isVisible('#lightbox'), 'hidden');
   await o.page.locator('#lightbox g.node').nth(4).click(); await o.page.waitForTimeout(200);

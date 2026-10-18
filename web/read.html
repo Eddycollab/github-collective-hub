@@ -31,19 +31,27 @@
     .msg { border: 2px solid var(--ink); background: var(--sheet); padding: 18px; display: grid; gap: 8px; max-width: 560px; }
     .msg p { margin: 0; }
 
-    .tblock { border: 2px solid var(--ink); background: var(--sheet); display: grid; grid-template-columns: minmax(0, 2.2fr) repeat(4, minmax(0, 1fr)); }
-    .tblock > div { padding: 6px 14px; min-width: 0; }
-    .tblock > div + div { border-left: 1.5px solid var(--ink); }
-    .tblock h1 { margin: 0; font-size: clamp(19px, 2vw, 25px); line-height: 1.25; overflow-wrap: anywhere; }
-    .tblock .sub { margin: 2px 0 0; font-size: 14.5px; font-weight: 600; color: var(--mute); }
-    .tblock .gh { font-size: 13px; font-weight: 600; text-decoration: none; }
+    /* One bar: back link, repo + tagline, the four facts and the GitHub link. Stacks on phones. */
+    .tblock { border: 2px solid var(--ink); background: var(--sheet); display: grid; grid-template-columns: auto minmax(0, 1fr); }
+    .tblock > * { min-width: 0; }
+    .tblock .back { grid-column: 1 / -1; justify-self: start; margin: 8px 0 0 12px; white-space: nowrap; }
+    .tblock .head { grid-column: 1 / -1; padding: 6px 12px 8px; }
+    .tblock h1 { margin: 0; font-size: 19px; line-height: 1.3; overflow-wrap: anywhere; }
+    .tblock .sub { margin: 0; font-size: 13.5px; font-weight: 600; color: var(--mute); }
+    .tblock .cell { padding: 6px 12px; border-top: 1.5px solid var(--ink); }
+    .tblock .gh { grid-column: 1 / -1; padding: 6px 12px; border-top: 1.5px solid var(--ink); font-size: 13px; font-weight: 600; text-decoration: none; }
     .lbl { display: block; font-size: 11.5px; color: var(--mute); }
     .val { display: block; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    @media (max-width: 999px) {
-      .tblock { grid-template-columns: 1fr 1fr; }
-      .tblock > div:first-child { grid-column: 1 / -1; }
-      .tblock > div:nth-child(2), .tblock > div:nth-child(4) { border-left: 0; }
-      .tblock > div:nth-child(n+2) { border-top: 1.5px solid var(--ink); }
+    @media (max-width: 999px) { .tblock .cell:nth-of-type(odd) { border-left: 1.5px solid var(--ink); } }
+    @media (min-width: 1000px) {
+      .tblock { display: flex; align-items: stretch; }
+      .tblock .back { margin: 8px 0 8px 10px; align-self: center; }
+      .tblock .head { flex: 1; display: flex; align-items: baseline; gap: 12px; padding: 8px 14px; white-space: nowrap; overflow: hidden; }
+      .tblock h1 { font-size: 18px; flex: none; }
+      .tblock .sub { overflow: hidden; text-overflow: ellipsis; }
+      .tblock .cell, .tblock .gh { border-top: 0; border-left: 1.5px solid var(--ink); display: flex; align-items: baseline; gap: 8px; padding: 8px 14px; white-space: nowrap; flex: none; }
+      .tblock .cell .lbl { display: inline; }
+      .tblock .gh { align-items: center; }
     }
 
     .read { display: grid; gap: 16px; grid-template-columns: 1fr; }
@@ -58,12 +66,14 @@
     .sec h2::after { content: ""; flex: 1; border-top: 1.5px solid var(--rule); }
     .sec p { margin: 0; }
     .lead { font-size: 15.5px; line-height: 1.75; }
+    .lead.clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+    .linkish { justify-self: start; border: 0; background: none; padding: 0; margin-top: 4px; font-size: 13px; font-weight: 600; color: var(--link); cursor: pointer; }
     .egs { display: grid; gap: 6px; margin-top: 8px; }
     .eg { display: grid; grid-template-columns: auto 1fr; gap: 10px; margin: 0; padding: 6px 10px; border: 1.5px solid var(--rule); background: var(--sheet); font-size: 13.5px; line-height: 1.6; }
     .eg b { font-size: 12px; color: var(--link); padding-top: 1px; white-space: nowrap; }
     .spec { width: 100%; border-collapse: collapse; border: 2px solid var(--ink); background: var(--sheet); font-size: 13.5px; line-height: 1.55; }
-    .spec th { width: 6.5em; text-align: left; vertical-align: top; font-weight: 600; font-size: 12.5px; color: var(--mute); padding: 6px 10px; border-right: 1.5px solid var(--ink); }
-    .spec td { padding: 6px 10px; }
+    .spec th { width: 6.5em; text-align: left; vertical-align: top; font-weight: 600; font-size: 12.5px; color: var(--mute); padding: 4px 10px; border-right: 1.5px solid var(--ink); }
+    .spec td { padding: 4px 10px; }
     .spec tr + tr > * { border-top: 1.5px solid var(--rule); }
     .note { margin: 0; padding: 10px 12px; border: 1.5px dashed var(--rule); color: var(--mute); font-size: 14px; }
     .more { display: flex; flex-direction: column; min-height: 0; flex: 1; border: 2px solid var(--ink); background: var(--sheet); }
@@ -71,7 +81,7 @@
     .seg button { flex: 1; border: 0; background: none; padding: 5px 8px; font-size: 13.5px; cursor: pointer; color: var(--mute); }
     .seg button + button { border-left: 1.5px solid var(--ink); }
     .seg button[aria-selected="true"] { background: var(--ink); color: var(--on-ink); font-weight: 600; }
-    .panel { padding: 10px 14px; font-size: 14px; line-height: 1.7; overflow: auto; min-height: 0; }
+    .panel { padding: 10px 14px; font-size: 14px; line-height: 1.7; overflow: auto; min-height: 0; flex: 1; }
     .panel.has-more { -webkit-mask-image: linear-gradient(#000 75%, transparent); mask-image: linear-gradient(#000 75%, transparent); }
     .panel ul { margin: 0; padding-left: 1.15em; display: grid; gap: 4px; }
     .stack { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -83,7 +93,7 @@
       .view:has(.read:not([hidden])) { height: 100%; padding-bottom: max(36px, env(safe-area-inset-bottom)); }
       .read { flex: 1; min-height: 0; grid-template-columns: minmax(0, 1fr) 480px; }
       .col { overflow-y: auto; }
-      .more { min-height: 140px; }
+      .more { min-height: 236px; }
       .fig { height: 100%; }
       .fig .dia { max-height: 100%; width: auto; max-width: 100%; }
     }
@@ -114,13 +124,6 @@
 </head>
 <body>
   <main class="view">
-    <div class="top">
-      <a class="back" href="./">← 收藏</a>
-      <div class="mark">
-        <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 8l10-5 10 5v10l-10 5-10-5z"/><path d="M3 8l10 5 10-5M13 13v10"/></svg>
-        RepoBox
-      </div>
-    </div>
     <div id="msg" class="msg" role="status" hidden></div>
     <div id="tblock" class="tblock" hidden></div>
     <div id="read" class="read" hidden>

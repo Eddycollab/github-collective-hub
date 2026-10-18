@@ -33,7 +33,7 @@ function lastSeen(rec) {
 const list = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x) : []);
 const text = (v) => (typeof v === 'string' ? v : '');
 
-function cell(label, value) { const d = el('div'); d.append(el('span', 'lbl', label), el('span', 'val', value)); return d; }
+function cell(label, value) { const d = el('div', 'cell'); d.append(el('span', 'lbl', label), el('span', 'val', value)); return d; }
 function section(title, ...kids) { const s = el('section', 'sec'); s.append(el('h2', null, title), ...kids); return s; }
 
 function specTable(lines) {
@@ -78,9 +78,22 @@ function renderText(rec, legacy) {
   const parts = [];
   const intro = text(rec.intro), examples = list(rec.examples), reqs = list(rec.requirements);
   if (intro) {
+    // Long intros clamp to four lines and only the first example shows, so the tabs below keep room.
+    const lead = el('p', 'lead clamp', intro);
+    const kids = [lead];
+    const more = el('button', 'linkish', '展開'); more.type = 'button'; more.hidden = true;
+    more.onclick = () => { lead.classList.remove('clamp'); more.hidden = true; };
+    kids.push(more);
+    requestAnimationFrame(() => { more.hidden = lead.scrollHeight <= lead.clientHeight + 1; });
     const egs = el('div', 'egs');
-    for (const x of examples) { const p = el('p', 'eg'); p.append(el('b', null, '例如'), el('span', null, x)); egs.append(p); }
-    parts.push(section('這是什麼', el('p', 'lead', intro), egs));
+    examples.forEach((x, i) => { const p = el('p', 'eg'); p.append(el('b', null, '例如'), el('span', null, x)); p.hidden = i > 0; egs.append(p); });
+    if (examples.length > 1) {
+      const rest = el('button', 'linkish more-eg', `再看 ${examples.length - 1} 個例子`); rest.type = 'button';
+      rest.onclick = () => { egs.querySelectorAll('.eg').forEach((p) => { p.hidden = false; }); rest.remove(); };
+      egs.append(rest);
+    }
+    kids.push(egs);
+    parts.push(section('這是什麼', ...kids));
   }
   if (reqs.length) parts.push(section('使用門檻', specTable(reqs)));
   const t = legacy ? null : tabs(rec);
@@ -113,14 +126,16 @@ function renderDiagram(cfg, stem, svgRes) {
 
 function renderRecord(cfg, stem, rec, svgRes, legacy) {
   const repo = text(rec.repo) || stem;
-  const head = el('div'); head.append(el('h1', null, repo));
+  const back = el('a', 'back', '← 收藏'); back.href = './';
+  const head = el('div', 'head'); head.append(el('h1', null, repo));
   if (text(rec.tagline)) head.append(el('p', 'sub', rec.tagline));
+  const parts = [back, head, cell('分類', categoryLabel(text(rec.category)) || '—'), cell('授權', text(rec.license) || '—'),
+    cell('語言', text(rec.language) || '—'), cell('收藏日', day(lastSeen(rec)))];
   if (/^https:\/\/github\.com\//.test(text(rec.url))) {
-    const gh = el('a', 'gh', '在 GitHub 開啟 ↗'); gh.href = rec.url; gh.target = '_blank'; gh.rel = 'noopener';
-    head.append(gh);
+    const gh = el('a', 'gh', 'GitHub ↗'); gh.href = rec.url; gh.target = '_blank'; gh.rel = 'noopener';
+    parts.push(gh);
   }
-  $('tblock').replaceChildren(head, cell('分類', categoryLabel(text(rec.category)) || '—'), cell('授權', text(rec.license) || '—'),
-    cell('語言', text(rec.language) || '—'), cell('收藏日', day(lastSeen(rec))));
+  $('tblock').replaceChildren(...parts);
   $('msg').hidden = true;
   $('tblock').hidden = false;
   $('read').hidden = false;
