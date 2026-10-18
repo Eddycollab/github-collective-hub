@@ -309,6 +309,18 @@ class PublishTest(unittest.TestCase):
         publish.run(self.art, self.repo, now="2030-01-02T00:00:00+00:00")
         self.assertEqual(self.md()[0]["stars_at"], "2030-01-02")
 
+    def test_cli_stdout_is_pure_json_despite_index_warnings(self):
+        import sys
+        self.lib.mkdir(parents=True)
+        (self.lib / "junk.md").write_text("---\nrepo: x\n---\n", encoding="utf-8")
+        write_entry(self.lib, "Bad/Side", 9)
+        (self.lib / "bad__side.json").write_text("{broken", encoding="utf-8")
+        p = subprocess.run([sys.executable, str(SCRIPTS / "publish.py"), "--artifacts", str(self.art), "--repo", str(self.repo)],
+                           capture_output=True, text=True)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertEqual(json.loads(p.stdout)["failed"], 0)
+        self.assertIn("skipping", p.stderr)
+
 
 def git(cwd, *args):
     return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True).stdout

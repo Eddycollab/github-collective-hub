@@ -121,8 +121,17 @@ def write_entry_files(md_path: Path, record: dict, md_text: str) -> None:
     # Sidecar first: legacy entries keep their machine fields in the .md until this succeeds.
     # default=str turns YAML-parsed dates into strings.
     data = json.dumps({k: record.get(k) for k in FM_KEYS}, ensure_ascii=False, indent=2, default=str)
-    sidecar(md_path).write_text(data + "\n", encoding="utf-8")
-    Path(md_path).write_text(md_text, encoding="utf-8")
+    side = sidecar(md_path)
+    previous = side.read_bytes() if side.is_file() else None
+    side.write_text(data + "\n", encoding="utf-8")
+    try:
+        Path(md_path).write_text(md_text, encoding="utf-8")
+    except OSError:
+        if previous is None:
+            side.unlink(missing_ok=True)
+        else:
+            side.write_bytes(previous)
+        raise
 
 
 def display_frontmatter(record: dict) -> dict:

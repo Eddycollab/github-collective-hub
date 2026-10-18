@@ -256,6 +256,22 @@ class EntryTest(unittest.TestCase):
             entry.write_entry_files(p, self.fm, "new text")
         self.assertEqual(p.read_text(encoding="utf-8"), "original")
 
+    def test_sidecar_restored_when_markdown_write_fails(self):
+        p = self.lib / "owner__repo.md"
+        side = self.lib / "owner__repo.json"
+        side.write_text('{"old": true}', encoding="utf-8")
+        p.mkdir()
+        with self.assertRaises(OSError):
+            entry.write_entry_files(p, self.fm, "new text")
+        self.assertEqual(side.read_text(encoding="utf-8"), '{"old": true}')
+
+    def test_new_sidecar_removed_when_markdown_write_fails(self):
+        p = self.lib / "fresh.md"
+        p.mkdir()
+        with self.assertRaises(OSError):
+            entry.write_entry_files(p, self.fm, "new text")
+        self.assertFalse((self.lib / "fresh.json").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

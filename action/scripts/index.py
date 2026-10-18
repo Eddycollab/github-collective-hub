@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -28,11 +29,11 @@ def collect(library: Path) -> list[dict]:
         try:
             fm = entry.read_record(p)
         except (OSError, UnicodeDecodeError, ValueError) as e:
-            print(f"index: skipping {p.name}: {e}")
+            print(f"index: skipping {p.name}: {e}", file=sys.stderr)
             continue
         repo, rid = fm.get("repo"), fm.get("repo_id")
         if not (isinstance(repo, str) and FULL_RE.match(repo) and isinstance(rid, int) and STEM_RE.match(p.stem)):
-            print(f"index: skipping {p.name}: frontmatter missing a valid repo/repo_id")
+            print(f"index: skipping {p.name}: frontmatter missing a valid repo/repo_id", file=sys.stderr)
             continue
         sightings = [s for s in fm.get("sightings") or [] if isinstance(s, dict)]
         times = [s.get("at") for s in sightings if s.get("at")]
