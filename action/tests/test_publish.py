@@ -59,7 +59,8 @@ class PublishTest(unittest.TestCase):
         return publish.run(self.art, self.repo, now=NOW)
 
     def md(self, stem="owner__repo"):
-        return entry.read_entry(self.lib / f"{stem}.md")
+        path = self.lib / f"{stem}.md"
+        return entry.read_record(path), entry.read_entry(path)[1]
 
     # --- ok / dedup / failed -------------------------------------------------
 
@@ -262,6 +263,35 @@ class PublishTest(unittest.TestCase):
         self.assertEqual(res["ok"], 1)
         self.assertTrue((self.repo / "inbox/done/20261018-1.json").exists())
         self.assertEqual((self.repo / "taxonomy.yml").read_text(), "categories: [unterminated\n")
+
+    def test_publish_writes_sidecar_and_slim_table(self):
+        self.inbox("20261018-1", capture())
+        self.leg("20261018-1")
+        self.run_publish()
+        side = json.loads((self.lib / "owner__repo.json").read_text(encoding="utf-8"))
+        self.assertEqual(side["sightings"][0]["id"], "20261018-1")
+        self.assertEqual(side["analysis"]["turns"], 5)
+        head = (self.lib / "owner__repo.md").read_text(encoding="utf-8").split(entry.START, 1)[0]
+        self.assertIn("收藏次數: 1", head)
+        self.assertNotIn("analysis:", head)
+
+    def test_legacy_entry_migrates_on_dedup(self):
+        p = self.lib / "owner__repo.md"
+        self.lib.mkdir(parents=True)
+        p.write_text("---\nrepo: Owner/Repo\nrepo_id: 1\nstars: 3\ncategory: dev-tool\ntags: [a]\nstack: [Python]\n"
+                     "sightings:\n- id: old\n  at: '2026-10-01T00:00:00+08:00'\nanalyzed_at: '2026-10-01T00:00:00+00:00'\n"
+                     "analysis:\n  model: m\n---\n" + entry.START + "\n## 技術摘要\n\nx\n" + entry.END + "\n## 我的筆記\n\n",
+                     encoding="utf-8")
+        self.inbox("20261018-2", capture())
+        self.leg("20261018-2", status="dedup", entry_path="library/owner__repo.md")
+        self.run_publish()
+        rec, user = self.md()
+        self.assertEqual([s["id"] for s in rec["sightings"]], ["old", "20261018-2"])
+        self.assertEqual(rec["analysis"], {"model": "m"})
+        text = p.read_text(encoding="utf-8")
+        self.assertNotIn("我的筆記", text)
+        self.assertNotIn("analysis:", text.split(entry.START, 1)[0])
+        self.assertIn("## 技術摘要", text)
 
 
 def git(cwd, *args):

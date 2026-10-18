@@ -26,7 +26,7 @@ def collect(library: Path) -> list[dict]:
     out = []
     for p in sorted(Path(library).glob("*.md")):
         try:
-            fm, _ = entry.read_entry(p)
+            fm = entry.read_record(p)
         except (OSError, UnicodeDecodeError):
             continue
         repo, rid = fm.get("repo"), fm.get("repo_id")

@@ -186,7 +186,8 @@ def _publish_group(repo: Path, legs: list[Leg], now: str) -> Leg:
     meta = winner.meta
     rel = next((l.entry for l in legs if l.entry), None)
     target = repo / rel if rel else repo / "library" / f"{entry.slug(meta['full_name'])}.md"
-    prev_fm, user = entry.read_entry(target) if target.exists() else ({}, None)
+    prev_fm = entry.read_record(target) if target.exists() else {}
+    user = entry.read_entry(target)[1] if target.exists() else None
     new = [entry.write_sighting(l.id, l.capture) for l in legs if l.from_inbox and l.capture]
     sightings = entry.merge_sightings(list(prev_fm.get("sightings") or []), new)
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -202,7 +203,7 @@ def _publish_group(repo: Path, legs: list[Leg], now: str) -> Leg:
         fm = entry.build_frontmatter(meta, None, sightings, prev_fm, None)
         auto = entry.read_auto(target)
         text = entry.render_entry(fm, None, None, user, auto=auto if auto is not None else "\n")
-    target.write_text(text, encoding="utf-8")
+    entry.write_entry_files(target, fm, text)
     return winner
 
 

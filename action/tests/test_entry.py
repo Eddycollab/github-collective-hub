@@ -25,7 +25,7 @@ END_ENCODINGS = [
 
 
 def write(path, fm, analysis=ANALYSIS, svg="owner__repo.svg", user=None, auto=None):
-    path.write_text(entry.render_entry(fm, analysis, svg, user, auto=auto), encoding="utf-8")
+    entry.write_entry_files(path, fm, entry.render_entry(fm, analysis, svg, user, auto=auto))
 
 
 class EntryTest(unittest.TestCase):
@@ -82,7 +82,7 @@ class EntryTest(unittest.TestCase):
         fm, got = entry.read_entry(p)
         self.assertEqual(got, user)
         self.assertEqual(fm["repo_id"], 42)
-        write(p, fm, user=got)
+        write(p, entry.read_record(p), user=got)
         self.assertEqual(entry.read_entry(p)[1], user)
 
     def test_read_entry_splits_at_first_end(self):
@@ -112,9 +112,10 @@ class EntryTest(unittest.TestCase):
 
     def test_frontmatter_key_order_and_license_none(self):
         self.assertEqual(list(self.fm), [
-            "repo", "repo_id", "url", "description", "language", "stars", "license", "category",
+            "repo", "repo_id", "url", "description", "language", "stars", "stars_at", "license", "category",
             "tags", "stack", "sightings", "analyzed_at", "analysis",
         ])
+        self.assertEqual(self.fm["stars_at"], "2026-10-18")
         self.assertIsNone(self.fm["license"])
         self.assertEqual(self.fm["description"], "A tool")
         self.assertEqual(self.fm["analysis"], RUN)
@@ -133,8 +134,8 @@ class EntryTest(unittest.TestCase):
         p = self.lib / "owner__repo.md"
         write(p, self.fm, user="\n## 我的筆記\nkeep\n")
         auto = entry.read_auto(p)
-        fm, user = entry.read_entry(p)
-        text = entry.render_entry(fm, None, None, user, auto=auto)
+        _, user = entry.read_entry(p)
+        text = entry.render_entry(entry.read_record(p), None, None, user, auto=auto)
         self.assertEqual(text.split(entry.START, 1)[1], p.read_text(encoding="utf-8").split(entry.START, 1)[1])
 
     def test_write_sighting_and_merge(self):
@@ -190,6 +191,49 @@ class EntryTest(unittest.TestCase):
     def test_real_user_text_after_end_is_kept(self):
         text = entry.render_entry(self.fm, ANALYSIS, None, "\n## 我的筆記\n- 有寫東西\n")
         self.assertIn("- 有寫東西", text)
+
+    def test_display_frontmatter_is_human_sized(self):
+        rec = dict(self.fm, sightings=[{"id": "a", "at": "2026-10-17T22:03:40+08:00"},
+                                       {"id": "b", "at": "2026-10-18T09:00:00+08:00"}])
+        disp = entry.display_frontmatter(rec)
+        self.assertEqual(list(disp), ["repo", "repo_id", "url", "description", "language", "stars", "license",
+                                      "category", "tags", "stack", "收藏次數", "最後看到"])
+        self.assertEqual(disp["stars"], "7（2026-10-18）")
+        self.assertEqual(disp["收藏次數"], 2)
+        self.assertEqual(disp["最後看到"], "2026-10-18")
+
+    def test_last_seen_falls_back_to_analyzed_date(self):
+        self.assertEqual(entry.display_frontmatter(self.fm)["最後看到"], "2026-10-18")
+
+    def test_rendered_table_hides_machine_fields(self):
+        text = entry.render_entry(self.fm, ANALYSIS, None, None)
+        head = text.split(entry.START, 1)[0]
+        for key in ("analysis:", "sightings:", "analyzed_at:", "stars_at:"):
+            self.assertNotIn(key, head)
+
+    def test_read_record_merges_sidecar(self):
+        p = self.lib / "owner__repo.md"
+        rec = dict(self.fm, sightings=[{"id": "a", "at": "2026-10-18T09:00:00+08:00"}])
+        write(p, rec)
+        self.assertTrue((self.lib / "owner__repo.json").exists())
+        got = entry.read_record(p)
+        self.assertEqual(got["sightings"], rec["sightings"])
+        self.assertEqual(got["analysis"], RUN)
+        self.assertEqual(got["stars"], 7)
+
+    def test_read_record_legacy_frontmatter_only(self):
+        p = self.lib / "old.md"
+        p.write_text("---\nrepo: Owner/Repo\nrepo_id: 42\nstars: 3\nsightings:\n- id: a\n  at: '2026-10-17T00:00:00+08:00'\n"
+                     "analysis:\n  model: m\n---\n" + entry.START + "\nx\n" + entry.END + "\n", encoding="utf-8")
+        got = entry.read_record(p)
+        self.assertEqual(got["sightings"][0]["id"], "a")
+        self.assertEqual(got["analysis"], {"model": "m"})
+
+    def test_read_record_ignores_corrupt_sidecar(self):
+        p = self.lib / "owner__repo.md"
+        write(p, self.fm)
+        (self.lib / "owner__repo.json").write_text("{broken", encoding="utf-8")
+        self.assertEqual(entry.read_record(p)["repo_id"], 42)
 
 
 if __name__ == "__main__":

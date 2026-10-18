@@ -6,6 +6,7 @@ after the first END is preserved byte for byte; no notes heading is generated an
 from __future__ import annotations
 
 import html
+import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,8 +23,12 @@ _TAG = re.compile(r"<[^>]*>", re.S)
 _MD_SPECIAL = re.compile(r"([\\`*_\[\]()#!|~])")
 # GFM autolinks bare URLs and emails even without link syntax; these go into code spans.
 _AUTOLINK = re.compile(r"(?:https?://|www\.)\S+|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", re.I)
-FM_KEYS = ("repo", "repo_id", "url", "description", "language", "stars", "license", "category",
+# Full record: written to the hidden sidecar library/<stem>.json.
+FM_KEYS = ("repo", "repo_id", "url", "description", "language", "stars", "stars_at", "license", "category",
            "tags", "stack", "sightings", "analyzed_at", "analysis")
+# Visible table: GitHub renders every frontmatter key, so only human-facing fields go here.
+DISPLAY_KEYS = ("repo", "repo_id", "url", "description", "language", "stars", "license", "category", "tags", "stack")
+SEEN_COUNT, LAST_SEEN = "收藏次數", "最後看到"
 CARRIED_ON_DEDUP = ("category", "tags", "stack", "analyzed_at", "analysis")
 
 
@@ -89,6 +94,42 @@ def read_auto(path: Path) -> str | None:
     return after.split(END, 1)[0] if END in after else None
 
 
+def sidecar(md_path: Path) -> Path:
+    return Path(md_path).with_suffix(".json")
+
+
+def read_record(md_path: Path) -> dict:
+    """Frontmatter merged with the sidecar; legacy entries kept everything in frontmatter."""
+    fm, _ = read_entry(md_path)
+    record = dict(fm)
+    try:
+        data = json.loads(sidecar(md_path).read_text(encoding="utf-8"))
+    except (OSError, ValueError, UnicodeDecodeError):
+        data = None
+    if isinstance(data, dict):
+        record.update(data)
+    return record
+
+
+def write_entry_files(md_path: Path, record: dict, md_text: str) -> None:
+    Path(md_path).write_text(md_text, encoding="utf-8")
+    sidecar(md_path).write_text(
+        json.dumps({k: record.get(k) for k in FM_KEYS}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def display_frontmatter(record: dict) -> dict:
+    disp = {k: record.get(k) for k in DISPLAY_KEYS}
+    if record.get("stars") is not None and record.get("stars_at"):
+        disp["stars"] = f"{record['stars']}（{record['stars_at']}）"
+    sightings = [s for s in record.get("sightings") or [] if isinstance(s, dict)]
+    disp[SEEN_COUNT] = len(sightings)
+    if sightings:
+        disp[LAST_SEEN] = str(max(sightings, key=_instant).get("at", ""))[:10]
+    else:
+        disp[LAST_SEEN] = str(record.get("analyzed_at") or "")[:10] or None
+    return disp
+
+
 def find_entry(library: Path, repo_id: int, full_name: str) -> Path | None:
     for p in sorted(Path(library).glob("*.md")):
         try:
@@ -104,6 +145,7 @@ def find_entry(library: Path, repo_id: int, full_name: str) -> Path | None:
 def build_frontmatter(meta: dict, analysis: dict | None, sightings: list[dict], prev: dict | None,
                       run: dict | None, now: str | None = None) -> dict:
     lic = meta.get("license")
+    now = now or datetime.now(timezone.utc).isoformat(timespec="seconds")
     fm = {
         "repo": meta["full_name"],
         "repo_id": meta["id"],
@@ -111,6 +153,7 @@ def build_frontmatter(meta: dict, analysis: dict | None, sightings: list[dict], 
         "description": to_plain(meta.get("description") or ""),
         "language": meta.get("language"),
         "stars": meta.get("stargazers_count"),
+        "stars_at": now[:10],
         "license": lic.get("spdx_id") if isinstance(lic, dict) else None,
     }
     if analysis is None:
@@ -121,7 +164,7 @@ def build_frontmatter(meta: dict, analysis: dict | None, sightings: list[dict], 
             "category": analysis["category"],
             "tags": list(analysis["tags"]),
             "stack": list(analysis["stack"]),
-            "analyzed_at": now or datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "analyzed_at": now,
             "analysis": dict(run) if run is not None else None,
         }
     fm.update(carried)
@@ -152,7 +195,7 @@ def render_entry(fm: dict, analysis: dict | None, svg_name: str | None, user_sec
         raise ValueError("render_entry needs either analysis or the previous auto block")
     if user_section is not None and user_section.strip() == LEGACY_EMPTY_NOTES:
         user_section = None
-    head = "---\n" + yaml.safe_dump(fm, allow_unicode=True, sort_keys=False, width=1000) + "---\n"
+    head = "---\n" + yaml.safe_dump(display_frontmatter(fm), allow_unicode=True, sort_keys=False, width=1000) + "---\n"
     text = head + START + block + END + (user_section if user_section is not None else USER_DEFAULT)
     if text.count(START) != 1 or text.count(END) != 1 or text.index(START) > text.index(END):
         raise ValueError("rendered entry must contain exactly one ordered auto marker pair")

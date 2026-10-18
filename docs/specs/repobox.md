@@ -102,7 +102,9 @@ repobox-library/
 
 只有 `v`、`url`、`captured_at` 必填。處理狀態看檔案在哪個資料夾，不寫回這個檔。
 
-### 條目：`library/owner__repo.md`
+### 條目：`library/owner__repo.md` + `library/owner__repo.json`
+
+GitHub 會把 frontmatter 全部畫成表格，所以 `.md` 的 frontmatter 只放人會看的欄位；完整紀錄（每次分享、分析紀錄、星數的時間點）放在同名的 `.json`，由 Action 讀寫。
 
 ```markdown
 ---
@@ -111,15 +113,13 @@ repo_id: 123456
 url: https://github.com/Owner/Repo
 description: ...
 language: TypeScript
-stars: 294
+stars: 294（2026-10-18）       收藏或最後一次分享當下的星數，不會自動更新
 license: MIT
 category: mcp-server
 tags: [mcp, chatgpt]
 stack: [TypeScript, Node.js]
-sightings:
-  - { id: 20261017-102233-a1b2, at: 2026-10-17T10:22:33+08:00, source: threads, note: "" }
-analyzed_at: 2026-10-17T10:24:01+00:00
-analysis: { model: claude-opus-5-5, turns: 21, wall_s: 217, rounds: 0, deepwiki: false, diagram: true }
+收藏次數: 2
+最後看到: 2026-10-18
 ---
 <!-- repobox:auto:start -->
 ## 這是什麼          白話介紹（給人看，不用專有名詞）＋ 1–2 個「例如」使用情境
@@ -132,7 +132,7 @@ analysis: { model: claude-opus-5-5, turns: 21, wall_s: 217, rounds: 0, deepwiki:
 ```
 
 - 去重以 `repo_id` 為準，repo 改名或轉移也不會變成兩篇（沿用舊檔名，只更新 frontmatter 的 `repo`、`url`）。
-- sighting 以 `id`（收藏檔名）為身分，重跑同一批不會重複追加。
+- `.json` 內容：上面所有欄位加 `stars_at`、`sightings`（`{id, at, source, note}`，以 `id` 即收藏檔名為身分，重跑不會重複追加）、`analyzed_at`、`analysis`（model、turns、wall_s、rounds、deepwiki、diagram）。2026-10-18 以前的條目把這些放在 frontmatter，讀取時會合併，下次寫回時搬進 `.json`。
 - Action 只改 frontmatter 與 auto 標記之間的內容；不再產生「我的筆記」區（2026-10-18 使用者決定拿掉），但 end 標記之後若有人手寫內容，仍逐 byte 保留。
 - 來自模型或 GitHub metadata 的文字一律轉成純文字並跳脫 Markdown；裸網址與 email 包成 code span，不會變成可點的連結。
 - 同一個 repo 再收一次：只追加一筆 `sightings` 並更新星數，不重畫圖。重新分析靠 `workflow_dispatch`。

@@ -27,5 +27,5 @@ def write_entry(library: Path, full="Owner/Repo", rid=1, sightings=(), category=
     if svg:
         (library / svg_name).write_text("<svg/>", encoding="utf-8")
     path = library / f"{stem}.md"
-    path.write_text(entry.render_entry(fm, ANALYSIS, svg_name, user), encoding="utf-8")
+    entry.write_entry_files(path, fm, entry.render_entry(fm, ANALYSIS, svg_name, user))
     return path
