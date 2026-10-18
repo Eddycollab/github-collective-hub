@@ -24,12 +24,13 @@ _MD_SPECIAL = re.compile(r"([\\`*_\[\]()#!|~])")
 # GFM autolinks bare URLs and emails even without link syntax; these go into code spans.
 _AUTOLINK = re.compile(r"(?:https?://|www\.)\S+|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", re.I)
 # Full record: written to the hidden sidecar library/<stem>.json.
+READING_KEYS = ("intro", "examples", "requirements", "summary", "highlights")
 FM_KEYS = ("repo", "repo_id", "url", "description", "language", "stars", "stars_at", "license", "category",
-           "tags", "stack", "sightings", "analyzed_at", "analysis")
+           "tags", "stack", *READING_KEYS, "sightings", "analyzed_at", "analysis")
 # Visible table: GitHub renders every frontmatter key, so only human-facing fields go here.
 DISPLAY_KEYS = ("repo", "repo_id", "url", "description", "language", "stars", "license", "category", "tags", "stack")
 SEEN_COUNT, LAST_SEEN = "收藏次數", "最後看到"
-CARRIED_ON_DEDUP = ("category", "tags", "stack", "analyzed_at", "analysis")
+CARRIED_ON_DEDUP = ("category", "tags", "stack", "analyzed_at", "analysis", *READING_KEYS)
 
 
 def slug(full_name: str) -> str:
@@ -184,6 +185,9 @@ def build_frontmatter(meta: dict, analysis: dict | None, sightings: list[dict], 
             "analyzed_at": now,
             "analysis": dict(run) if run is not None else None,
         }
+        for k in READING_KEYS:
+            v = analysis[k]
+            carried[k] = [to_plain(x) for x in v] if isinstance(v, list) else to_plain(v)
     fm.update(carried)
     fm["sightings"] = list(sightings)
     return {k: fm[k] for k in FM_KEYS}

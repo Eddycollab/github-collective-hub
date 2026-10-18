@@ -321,6 +321,14 @@ class PublishTest(unittest.TestCase):
         self.assertEqual(json.loads(p.stdout)["failed"], 0)
         self.assertIn("skipping", p.stderr)
 
+    def test_publish_sidecar_has_reading_fields(self):
+        self.inbox("20261019-1", capture())
+        self.leg("20261019-1")
+        self.run_publish()
+        side = json.loads((self.lib / "owner__repo.json").read_text(encoding="utf-8"))
+        self.assertEqual(side["intro"], ANALYSIS["intro"])
+        self.assertEqual(side["requirements"], ANALYSIS["requirements"])
+
 
 def git(cwd, *args):
     return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True).stdout

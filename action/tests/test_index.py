@@ -89,6 +89,11 @@ class IndexTest(unittest.TestCase):
         text = index.render_readme(index.collect(self.lib), taxonomy.DEFAULT, today="2026-10-18")
         self.assertIn("A/One", text)
 
+    def test_index_entries_include_intro(self):
+        write_entry(self.lib, "A/One", 1)
+        data = json.loads(index.render_index(index.collect(self.lib)))
+        self.assertTrue(data["entries"][0]["intro"])
+
 
 if __name__ == "__main__":
     unittest.main()

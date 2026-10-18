@@ -115,7 +115,8 @@ class EntryTest(unittest.TestCase):
     def test_frontmatter_key_order_and_license_none(self):
         self.assertEqual(list(self.fm), [
             "repo", "repo_id", "url", "description", "language", "stars", "stars_at", "license", "category",
-            "tags", "stack", "sightings", "analyzed_at", "analysis",
+            "tags", "stack", "intro", "examples", "requirements", "summary", "highlights", "sightings",
+            "analyzed_at", "analysis",
         ])
         self.assertEqual(self.fm["stars_at"], "2026-10-18")
         self.assertIsNone(self.fm["license"])
@@ -278,6 +279,30 @@ class EntryTest(unittest.TestCase):
         self.assertLess(text.index("## 這是什麼"), text.index("## 使用門檻"))
         self.assertLess(text.index("## 使用門檻"), text.index("## 技術摘要"))
         self.assertIn("- 平台：只支援 Windows\n- 費用：免費\n", text)
+
+    def test_record_carries_reading_fields(self):
+        for k in ("intro", "examples", "requirements", "summary", "highlights"):
+            self.assertEqual(self.fm[k], [entry.to_plain(x) for x in ANALYSIS[k]] if isinstance(ANALYSIS[k], list) else entry.to_plain(ANALYSIS[k]))
+
+    def test_reading_fields_are_plain(self):
+        fm = entry.build_frontmatter(META, dict(ANALYSIS, intro="一個 <b>粗體</b> 的介紹文字，說明這個工具能做什麼事。"), [], None, RUN)
+        self.assertEqual(fm["intro"], "一個 粗體 的介紹文字，說明這個工具能做什麼事。")
+
+    def test_dedup_keeps_prev_reading_fields(self):
+        fm = entry.build_frontmatter(META, None, [], self.fm, None)
+        self.assertEqual(fm["requirements"], self.fm["requirements"])
+        self.assertEqual(fm["intro"], self.fm["intro"])
+
+    def test_dedup_without_prev_reading_fields_is_none(self):
+        legacy = {k: v for k, v in self.fm.items() if k not in entry.READING_KEYS}
+        fm = entry.build_frontmatter(META, None, [], legacy, None)
+        self.assertIsNone(fm["intro"])
+        self.assertIsNone(fm["highlights"])
+
+    def test_display_frontmatter_hides_reading_fields(self):
+        disp = entry.display_frontmatter(self.fm)
+        for k in entry.READING_KEYS:
+            self.assertNotIn(k, disp)
 
 
 if __name__ == "__main__":
