@@ -96,6 +96,40 @@ const SHOTS = process.env.SHOTS || '';
   expect('(g) unsafe hash shows not-found and makes no API call', (await o.page.textContent('body')).includes('找不到這筆收藏') && o.calls.length === 0, `calls=${o.calls}`);
   await done('(g)', o);
 
+  {
+    // A slow response for the previous entry must not replace the current one.
+    const other = JSON.stringify({ ...JSON.parse(ENTRY), repo: 'Bee/Two', url: 'https://github.com/Bee/Two' });
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const errors = [];
+    await ctx.route('https://api.github.com/**', async (r) => {
+      const u = r.request().url().replace('https://api.github.com/repos/me/lib', '');
+      if (u === `/contents/library/${STEM}.json`) { await new Promise((res) => setTimeout(res, 1500)); return r.fulfill({ status: 200, contentType: 'application/json', body: ENTRY }); }
+      if (u === '/contents/library/bee__two.json') return r.fulfill({ status: 200, contentType: 'application/json', body: other });
+      if (u.endsWith('.svg')) return r.fulfill({ status: 200, contentType: 'image/svg+xml', body: SVG });
+      if (u === '/contents/index.json') return r.fulfill({ status: 200, contentType: 'application/json', body: INDEX });
+      return r.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    const page = await ctx.newPage();
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(B);
+    await page.evaluate(() => localStorage.setItem('repobox.cfg', JSON.stringify({ repo: 'me/lib', token: 't', nonce: 'n' })));
+    await page.goto(`${B}read.html#${STEM}`);
+    await page.waitForTimeout(200);
+    await page.evaluate(() => { location.hash = '#bee__two'; });
+    await page.waitForTimeout(2500);
+    const h1 = await page.textContent('h1').catch(() => '');
+    expect('(j) late response for the previous entry is ignored', h1 === 'Bee/Two', h1);
+    expect('(j): no page errors', errors.length === 0, errors.join(' | '));
+    await ctx.close();
+  }
+  for (const [repo, want] of [[404, '找不到收藏庫'], [200, '找不到這筆收藏'], [401, 'token 失效'], [403, 'token 失效']]) {
+    o = await open({ routes: { [`/contents/library/${STEM}.json`]: { status: 404, body: '{}' }, [`/contents/library/${STEM}.svg`]: { status: 404, body: '{}' },
+      '/contents/index.json': { status: 404, body: '{}' }, '': { status: repo, body: '{}' } } });
+    const body = await o.page.textContent('body');
+    expect(`(k) all 404 + repo ${repo} says "${want}"`, body.includes(want), body.replace(/\s+/g, ' ').slice(0, 120));
+    await done(`(k) repo ${repo}`, o);
+  }
+
   o = await open({ scheme: 'dark' });
   await done('(i) dark', o, 'read-dark');
 

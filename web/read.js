@@ -129,7 +129,10 @@ function renderRecord(cfg, stem, rec, svgRes, legacy) {
   renderDiagram(cfg, stem, svgRes);
 }
 
+let generation = 0;
+
 async function load() {
+  const gen = ++generation;
   const stem = parseStem(location.hash);
   if (!stem) { showMessage('找不到這筆收藏。'); return; }
   const cfg = loadCfg();
@@ -137,6 +140,9 @@ async function load() {
   const [side, svgRes, idx] = await Promise.all([
     ghRaw(cfg, `library/${stem}.json`), ghRaw(cfg, `library/${stem}.svg`), loadIndex(cfg),
   ]);
+  // A newer navigation (hashchange) or a settings change makes this result stale.
+  const now = loadCfg();
+  if (gen !== generation || parseStem(location.hash) !== stem || !now || now.repo !== cfg.repo) return;
   if (side.status === 200) {
     let rec = null;
     try { rec = JSON.parse(side.text); } catch { /* handled below */ }
@@ -149,7 +155,7 @@ async function load() {
     // Entries written before sidecars existed are still listed in index.json.
     const entry = idx.state === 'ok' ? idx.index.entries.find((e) => e && stemOf(e.md) === stem) : null;
     if (entry) { renderRecord(cfg, stem, entry, svgRes, true); return; }
-    showMessage(idx.state === 'auth' ? STATE_TEXT.auth : '找不到這筆收藏。');
+    showMessage(idx.state === 'auth' || idx.state === 'no-repo' ? STATE_TEXT[idx.state] : '找不到這筆收藏。');
     return;
   }
   showMessage(STATE_TEXT.unavailable);

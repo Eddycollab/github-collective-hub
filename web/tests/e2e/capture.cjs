@@ -95,6 +95,26 @@ const INDEX = fs.readFileSync(path.join(__dirname, 'fixtures/index.json'), 'utf8
     expect('malformed index rows are skipped, the rest render', n === 3 && errors.length === 0, `rows=${n} errors=${errors.join(' | ')}`);
     await ctx.close();
   }
+  {
+    // With more entries than fit, the last one must still be reachable by the user's own scrolling.
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const many = JSON.stringify({ entries: Array.from({ length: 30 }, (_, i) => ({ repo: `Own/R${i}`, md: `library/own__r${i}.md`, intro: 'x', category: 'other', last_seen: new Date(Date.UTC(2026, 9, 1) + (30 - i) * 3600e3).toISOString() })) });
+    await ctx.route('https://api.github.com/**', (r) => r.fulfill({ status: r.request().url().endsWith('/index.json') ? 200 : 404, contentType: 'application/json', body: r.request().url().endsWith('/index.json') ? many : '{}' }));
+    const page = await ctx.newPage();
+    await page.goto(B);
+    await page.evaluate(() => localStorage.setItem('repobox.cfg', JSON.stringify({ repo: 'me/lib', token: 't', nonce: 'n' })));
+    await page.reload(); await page.waitForTimeout(700);
+    const box = await page.locator('#recent').boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    for (let i = 0; i < 20; i += 1) await page.mouse.wheel(0, 400);
+    await page.waitForTimeout(300);
+    const last = page.locator('#recent li a').last();
+    const lb = await last.boundingBox();
+    const visible = lb && lb.y + lb.height <= box.y + box.height + 1 && lb.y >= box.y - 1;
+    expect('long library scrolls to its last entry by wheel', visible, JSON.stringify({ box, lb }));
+    expect('one-screen page still does not scroll', await page.evaluate(() => document.documentElement.scrollHeight === innerHeight), 'page scrolls');
+    await ctx.close();
+  }
   await browser.close(); close();
   console.log(failures.length ? `\n${failures.length} check(s) failed` : '\nall capture checks passed');
   process.exit(failures.length ? 1 : 0);
