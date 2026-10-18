@@ -1,5 +1,7 @@
 'use strict';
 
+import { loadIndex, mergeLibrary, STATE_TEXT, CATEGORY_LABEL } from './lib/library.mjs';
+
 const CFG_KEY = 'repobox.cfg';
 const RESERVED_OWNERS = new Set([
   'about', 'apps', 'codespaces', 'collections', 'copilot', 'enterprise', 'explore', 'features',
@@ -149,7 +151,7 @@ async function submit(hit, ctx = {}) {
       $('clock').textContent = hhmm(now);
       setHint('分析約需 3–8 分鐘，完成後會出現在最近收藏。');
       addHistory({ id, repo: `${hit.owner}/${hit.repo}`, lib: cfg.repo, at: now.toISOString(), state: 'pending' });
-      renderRecent();
+      renderLibrary();
       schedulePoll();
       if (window.opener) setTimeout(() => window.close(), 1500);
     } else {
@@ -188,8 +190,6 @@ function saveHistory(h) {
 
 function addHistory(item) { saveHistory([item, ...loadHistory().filter((x) => x.id !== item.id)]); }
 
-const STATE_LABEL = { pending: '分析中', done: '已分析', failed: '失敗' };
-
 function ago(iso) {
   const mins = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
   if (mins < 1) return '剛剛';
@@ -198,52 +198,54 @@ function ago(iso) {
   return hours < 24 ? `${hours} 小時前` : `${Math.round(hours / 24)} 天前`;
 }
 
-function itemLink(cfg, item) {
-  if (!cfg) return null;
-  const base = `https://github.com/${cfg.repo}`;
-  if (item.state === 'done') return item.md ? `${base}/blob/main/${item.md}` : base;
-  if (item.state === 'failed') return `${base}/blob/main/inbox/failed/${item.id}.json`;
-  return `${base}/actions`;
-}
-
 function historyFor(cfg) {
   return loadHistory().filter((x) => cfg && x.lib === cfg.repo);
 }
 
-function renderRecent() {
+// The list shows the whole library (index.json) plus local captures still being analyzed.
+const lib = { state: 'ok', index: null };
+
+async function loadLib() {
   const cfg = loadCfg();
-  const list = $('recent');
-  const items = historyFor(cfg);
+  if (!cfg || !cfg.token) { lib.state = 'ok'; lib.index = null; renderLibrary(); return; }
+  Object.assign(lib, await loadIndex(cfg));
+  renderLibrary();
+}
+
+function libRow(href, external, name, tagText, tagState, sub) {
+  const li = document.createElement('li');
+  const row = document.createElement('a');
+  row.href = href;
+  if (external) { row.target = '_blank'; row.rel = 'noopener'; }
+  const n = document.createElement('span'); n.className = 'name'; n.textContent = name;
+  const tag = document.createElement('span'); tag.className = 'tag'; tag.dataset.s = tagState; tag.textContent = tagText;
+  const w = document.createElement('span'); w.className = 'when'; w.textContent = sub;
+  row.append(n, tag, w);
+  li.append(row);
+  return li;
+}
+
+function renderLibrary() {
+  const cfg = loadCfg();
+  const note = $('lib-note');
+  note.textContent = lib.state === 'ok' || lib.state === 'empty' ? '' : STATE_TEXT[lib.state];
+  const items = cfg ? mergeLibrary(lib.index, historyFor(cfg), cfg.repo) : [];
   if (!items.length) {
     const li = document.createElement('li');
     li.className = 'empty';
-    li.textContent = '收藏過的 repo 會列在這裡。';
-    list.replaceChildren(li);
+    li.textContent = cfg ? STATE_TEXT.empty : '連結收藏庫之後，你的書庫會列在這裡。';
+    $('recent').replaceChildren(li);
     return;
   }
-  list.replaceChildren(...items.map((item) => {
-    const li = document.createElement('li');
-    const href = itemLink(cfg, item);
-    const row = document.createElement(href ? 'a' : 'span');
-    if (href) { row.href = href; row.target = '_blank'; row.rel = 'noopener'; }
-    const name = document.createElement('span');
-    name.className = 'name';
-    name.textContent = item.repo;
-    const when = document.createElement('span');
-    when.className = 'when';
-    when.textContent = ago(item.at);
-    const tag = document.createElement('span');
-    tag.className = 'tag';
-    tag.dataset.s = item.state;
-    tag.textContent = STATE_LABEL[item.state] || item.state;
-    row.append(name, tag, when);
-    li.append(row);
-    return li;
+  const gh = `https://github.com/${cfg.repo}`;
+  $('recent').replaceChildren(...items.map((it) => {
+    if (it.kind === 'entry') return libRow(`read.html#${it.stem}`, false, it.repo, CATEGORY_LABEL[it.category] || it.category || '收藏', 'done', it.intro);
+    if (it.kind === 'failed') return libRow(`${gh}/blob/main/inbox/failed/${it.id}.json`, true, it.repo, '失敗', 'failed', ago(it.at));
+    return libRow(`${gh}/actions`, true, it.repo, '分析中', 'pending', ago(it.at));
   }));
 }
 
-// Coupled with publish.py: a processed capture moves to inbox/done/ or inbox/failed/ under the
-// same name, and index.json maps canonical repo names to entry paths (renames keep old paths).
+// Coupled with publish.py: a processed capture moves to inbox/done/ or inbox/failed/ under the same name.
 async function refreshStates() {
   const cfg = loadCfg();
   if (!cfg || !cfg.token) return;
@@ -255,41 +257,16 @@ async function refreshStates() {
   };
   const updates = new Map();
   for (const item of pending) {
-    if (await exists(`inbox/done/${item.id}.json`)) updates.set(item.id, { state: 'done' });
-    else if (await exists(`inbox/failed/${item.id}.json`)) updates.set(item.id, { state: 'failed' });
+    if (await exists(`inbox/done/${item.id}.json`)) updates.set(item.id, 'done');
+    else if (await exists(`inbox/failed/${item.id}.json`)) updates.set(item.id, 'failed');
   }
   if (!updates.size) return;
-  if ([...updates.values()].some((u) => u.state === 'done')) {
-    const paths = await entryPaths(cfg);
-    for (const item of pending) {
-      const u = updates.get(item.id);
-      if (u && u.state === 'done') u.md = paths.get(item.repo.toLowerCase()) || null;
-    }
-  }
   // Re-read: a capture may have been added while the requests were in flight.
   const latest = loadHistory();
-  for (const item of latest) {
-    const u = updates.get(item.id);
-    if (u && item.lib === cfg.repo) Object.assign(item, u);
-  }
+  for (const item of latest) if (updates.has(item.id) && item.lib === cfg.repo) item.state = updates.get(item.id);
   saveHistory(latest);
-  renderRecent();
-}
-
-async function entryPaths(cfg) {
-  const map = new Map();
-  try {
-    const res = await fetch(`https://api.github.com/repos/${cfg.repo}/contents/index.json`, {
-      headers: { ...ghHeaders(cfg), Accept: 'application/vnd.github.raw+json' },
-    });
-    const data = res.ok ? await res.json() : null;
-    for (const e of (data && Array.isArray(data.entries) ? data.entries : [])) {
-      if (e && typeof e.repo === 'string' && typeof e.md === 'string' && /^library\/[a-z0-9._-]+\.md$/.test(e.md)) {
-        map.set(e.repo.toLowerCase(), e.md);
-      }
-    }
-  } catch { /* fall back to the library root */ }
-  return map;
+  if ([...updates.values()].includes('done')) await loadLib();
+  else renderLibrary();
 }
 
 let pollTimer = null;
@@ -348,7 +325,7 @@ function init() {
   const base = location.origin + location.pathname;
   renderBookmarklet(base, cfg);
   renderConn(cfg);
-  renderRecent();
+  loadLib();
 
   $('conn').onclick = openDrawer;
   $('drawer-close').onclick = closeDrawer;
@@ -374,7 +351,7 @@ function init() {
     drawerMessage('已儲存。', false);
     renderBookmarklet(base, cfg);
     renderConn(cfg);
-    renderRecent();
+    loadLib();
     setTimeout(closeDrawer, 600);
   };
 

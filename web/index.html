@@ -6,25 +6,13 @@
   <meta name="referrer" content="no-referrer">
   <title>RepoBox</title>
   <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="tokens.css">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <meta name="theme-color" content="#f4f7fb" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0e2f6b" media="(prefers-color-scheme: dark)">
   <style>
-    :root {
-      --paper: #f4f7fb; --grid: #dbe4f1; --grid-major: #c3d1e6;
-      --ink: #16233f; --mute: #5b6b85; --line: #16233f;
-      --cyan: #1f4fc4; --cyan-ink: #ffffff; --err: #c0392b; --field: #ffffffcc;
-      --gutter: max(16px, env(safe-area-inset-left));
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --paper: #0e2f6b; --grid: #1a3f80; --grid-major: #24508f;
-        --ink: #eaf1ff; --mute: #a9bee3; --line: #cfdcf5;
-        --cyan: #eaf1ff; --cyan-ink: #0e2f6b; --err: #ffab9e; --field: #0b2758cc;
-      }
-    }
     * { box-sizing: border-box; }
     html, body { height: 100%; }
     body {
@@ -114,6 +102,10 @@
     #recent .tag[data-s="done"] { border-color: var(--cyan); color: var(--cyan); }
     #recent .tag[data-s="failed"] { border-color: var(--err); color: var(--err); }
     #recent .empty { color: var(--mute); font-size: 14px; padding: 12px 2px; border: 0; }
+    .lib-note { margin: 6px 0 0; font-size: 13px; color: var(--err); }
+    .lib-note:empty { display: none; }
+    #recent .tag[data-s="done"] { border-color: var(--mute); color: var(--mute); }
+    #recent .when { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     dialog {
       width: min(460px, 100%); max-width: 100%; max-height: 92dvh; margin: auto auto 0;
@@ -208,9 +200,10 @@
 
     <section class="recent">
       <div class="recent-head">
-        <h2>最近收藏</h2>
-        <a id="library" href="#" target="_blank" rel="noopener">開啟書庫 ↗</a>
+        <h2>書庫</h2>
+        <a id="library" href="#" target="_blank" rel="noopener">GitHub ↗</a>
       </div>
+      <p id="lib-note" class="lib-note" role="status"></p>
       <ul id="recent"></ul>
     </section>
   </main>
@@ -234,6 +227,6 @@
     </details>
   </dialog>
 
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

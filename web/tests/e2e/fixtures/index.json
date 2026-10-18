@@ -1,0 +1,102 @@
+{
+  "generated_at": "2026-10-18T10:54:51+00:00",
+  "count": 3,
+  "entries": [
+    {
+      "repo": "michael-denyer/pstack-claude",
+      "repo_id": 1250276806,
+      "url": "https://github.com/michael-denyer/pstack-claude",
+      "description": "Claude Code, Codex, Copilot, Pi, OpenCode, Gemini, and Prime Agent versions of Poteto's pstack. Rigorous agent workflows with Cursor primitives translated for other harnesses.",
+      "language": "JavaScript",
+      "stars": 2879,
+      "license": "MIT",
+      "category": "dev-tool",
+      "tags": [
+        "claude-code",
+        "agent-skills",
+        "codex",
+        "workflow",
+        "code-review"
+      ],
+      "stack": [
+        "Markdown",
+        "TypeScript",
+        "JavaScript",
+        "Bun",
+        "Shell",
+        "AWK",
+        "TypeBox",
+        "Lean"
+      ],
+      "analyzed_at": "2026-10-18T10:45:20+00:00",
+      "md": "library/michael-denyer__pstack-claude.md",
+      "last_seen": "2026-10-18T13:11:31+08:00",
+      "sightings_n": 1,
+      "svg": "library/michael-denyer__pstack-claude.svg"
+    },
+    {
+      "repo": "XiaoPuOuO/openchatx-mcp",
+      "repo_id": 1383604528,
+      "url": "https://github.com/XiaoPuOuO/openchatx-mcp",
+      "description": "Turn ChatGPT into a local agent runtime. Operate your computer, use local tools, discover MCP servers, and delegate work to your own models through one MCP connection.",
+      "language": "TypeScript",
+      "stars": 316,
+      "license": "MIT",
+      "category": "mcp-server",
+      "tags": [
+        "mcp",
+        "chatgpt",
+        "local-agent",
+        "desktop",
+        "toolbox"
+      ],
+      "stack": [
+        "TypeScript",
+        "Node.js",
+        "Express",
+        "MCP SDK",
+        "React",
+        "Vite",
+        "Swift",
+        "C#"
+      ],
+      "analyzed_at": "2026-10-18T10:54:51+00:00",
+      "md": "library/xiaopuouo__openchatx-mcp.md",
+      "last_seen": "2026-10-17T22:03:40+08:00",
+      "sightings_n": 1,
+      "svg": "library/xiaopuouo__openchatx-mcp.svg"
+    },
+    {
+      "repo": "SquirrelRay/LiveSummary",
+      "repo_id": 1420601963,
+      "url": "https://github.com/SquirrelRay/LiveSummary",
+      "description": "直播摘要：即時轉錄、摘要、翻譯 Twitch 與 YouTube 直播",
+      "language": "Python",
+      "stars": 13,
+      "license": "GPL-3.0",
+      "category": "desktop-app",
+      "tags": [
+        "live-stream",
+        "transcription",
+        "summarization",
+        "translation",
+        "twitch"
+      ],
+      "stack": [
+        "Python",
+        "PySide6",
+        "faster-whisper",
+        "streamlink",
+        "yt-dlp",
+        "Anthropic SDK",
+        "OpenAI SDK",
+        "OpenCC"
+      ],
+      "analyzed_at": "2026-10-18T10:50:25+00:00",
+      "md": "library/squirrelray__livesummary.md",
+      "last_seen": "2026-10-17T21:19:43+08:00",
+      "sightings_n": 1,
+      "svg": "library/squirrelray__livesummary.svg"
+    }
+  ]
+}

@@ -4,6 +4,10 @@
 export const STEM_RE = /^[a-z0-9._-]+__[a-z0-9._-]+$/;
 const API = 'https://api.github.com/repos';
 
+export const CATEGORY_LABEL = { 'agent-framework': 'Agent 框架', 'mcp-server': 'MCP 伺服器', 'dev-tool': '開發工具',
+  'model-inference': '模型推論', 'data-processing': '資料處理', frontend: '前端', infrastructure: '基礎設施', game: '遊戲',
+  'desktop-app': '桌面應用', other: '其他' };
+
 export const STATE_TEXT = {
   empty: '書庫還是空的。分享一個 GitHub repo 給 RepoBox，分析完會出現在這裡。',
   'no-repo': '找不到收藏庫，或 token 沒有它的權限。請到設定確認收藏庫名稱與 token。',
