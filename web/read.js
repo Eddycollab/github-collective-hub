@@ -78,7 +78,7 @@ function renderText(rec, legacy) {
   const parts = [];
   const intro = text(rec.intro), examples = list(rec.examples), reqs = list(rec.requirements);
   if (intro) {
-    // Long intros clamp to four lines and only the first example shows, so the tabs below keep room.
+    // Long intros clamp to four lines and only the first example shows (user call 2026-10-19), so the tabs keep room.
     const lead = el('p', 'lead clamp', intro);
     const kids = [lead];
     const more = el('button', 'linkish', '展開'); more.type = 'button'; more.hidden = true;
@@ -86,14 +86,11 @@ function renderText(rec, legacy) {
     kids.push(more);
     const measure = () => { if (lead.classList.contains('clamp')) more.hidden = lead.scrollHeight <= lead.clientHeight + 1; };
     new ResizeObserver(measure).observe(lead);
-    const egs = el('div', 'egs');
-    examples.forEach((x, i) => { const p = el('p', 'eg'); p.append(el('b', null, '例如'), el('span', null, x)); p.hidden = i > 0; egs.append(p); });
-    if (examples.length > 1) {
-      const rest = el('button', 'linkish more-eg', `再看 ${examples.length - 1} 個例子`); rest.type = 'button';
-      rest.onclick = () => { egs.querySelectorAll('.eg').forEach((p) => { p.hidden = false; }); rest.remove(); };
-      egs.append(rest);
+    if (examples.length) {
+      const p = el('p', 'eg'); p.append(el('b', null, '例如'), el('span', null, examples[0]));
+      const egs = el('div', 'egs'); egs.append(p);
+      kids.push(egs);
     }
-    kids.push(egs);
     parts.push(section('這是什麼', ...kids));
   }
   if (reqs.length) parts.push(section('使用門檻', specTable(reqs)));
@@ -127,12 +124,11 @@ function renderDiagram(cfg, stem, svgRes) {
 
 function renderRecord(cfg, stem, rec, svgRes, legacy) {
   const repo = text(rec.repo) || stem;
-  const back = el('a', 'back', '← 收藏'); back.href = './';
   const h1 = el('h1', null, repo); h1.title = repo;
   const head = el('div', 'head'); head.append(h1);
   if (text(rec.tagline)) head.append(el('p', 'sub', rec.tagline));
-  const parts = [back, head, cell('分類', categoryLabel(text(rec.category)) || '—'), cell('授權', text(rec.license) || '—'),
-    cell('語言', text(rec.language) || '—'), cell('收藏日', day(lastSeen(rec)))];
+  const parts = [head, cell('分類', categoryLabel(text(rec.category)) || '—'), cell('授權', text(rec.license) || '—'),
+    cell('收藏日', day(lastSeen(rec)))];
   if (/^https:\/\/github\.com\//.test(text(rec.url))) {
     const gh = el('a', 'gh', 'GitHub ↗'); gh.href = rec.url; gh.target = '_blank'; gh.rel = 'noopener';
     parts.push(gh);
