@@ -47,7 +47,7 @@ const serve = require('./serve.cjs');
   await go(page, B + '#url=https://github.com/a/b&k=nope'); await check('B bookmarklet with wrong nonce asks first', ctx, page, 0, '待確認');
   await go(page, B + '#url=https://github.com/a/b&k=abc123&ref=www.threads.com'); await check('C bookmarklet with nonce writes once', ctx, page, 1, '已收');
   await sharePost(page); await check('D share POST in a browser tab asks first', ctx, page, 0, '待確認');
-  await go(page, B + '#s=12345678-1234-1234-1234-123456789abc'); await check('E forged handoff id does nothing', ctx, page, 0, '等待收藏');
+  await go(page, B + '#s=12345678-1234-1234-1234-123456789abc'); await check('E forged handoff id does nothing', ctx, page, 0, '');
   const href = await page.getAttribute('#bookmarklet', 'href');
   ctx.lastDialog = null; let popups = 0; ctx.on('page', () => { popups += 1; });
   await page.evaluate((code) => { (0, eval)(decodeURIComponent(code.replace(/^javascript:/, ''))); }, href);

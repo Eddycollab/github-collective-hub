@@ -101,7 +101,7 @@ function setStatus(text, cls = '') {
   $('block').dataset.state = cls || 'idle';
 }
 
-function setRepo(name) { $('block-repo').textContent = name || '—'; }
+function setRepo(name) { $('block-repo').textContent = name || ''; }
 function setHint(text) { $('hint').textContent = text || ''; }
 function clearActions() { $('block-actions').replaceChildren(); }
 
@@ -113,8 +113,6 @@ function addAction(label, onClick, primary = false) {
   btn.onclick = () => { clearActions(); onClick(); };
   $('block-actions').append(btn);
 }
-
-function hhmm(d) { return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 
 async function submit(hit, ctx = {}) {
   const cfg = loadCfg();
@@ -147,9 +145,7 @@ async function submit(hit, ctx = {}) {
     const totalMs = Math.round(performance.now());
     if (res.ok) {
       setStatus('已收', 'ok');
-      $('timing').textContent = `${(totalMs / 1000).toFixed(1)} 秒`;
-      $('clock').textContent = hhmm(now);
-      setHint('分析約需 3–8 分鐘，完成後會出現在最近收藏。');
+      setHint(`${(totalMs / 1000).toFixed(1)} 秒，分析約需 3–8 分鐘，完成後會出現在書庫。`);
       addHistory({ id, repo: `${hit.owner}/${hit.repo}`, lib: cfg.repo, at: now.toISOString(), state: 'pending' });
       renderLibrary();
       schedulePoll();
@@ -219,38 +215,60 @@ async function loadLib() {
   renderLibrary();
 }
 
-function libRow(href, external, name, tagText, tagState, sub) {
+function libRow(href, external, name, sub) {
   const li = document.createElement('li');
   const row = document.createElement('a');
   row.href = href;
   if (external) { row.target = '_blank'; row.rel = 'noopener'; }
   const n = document.createElement('span'); n.className = 'name'; n.textContent = name;
-  const tag = document.createElement('span'); tag.className = 'tag'; tag.dataset.s = tagState; tag.textContent = tagText;
   const w = document.createElement('span'); w.className = 'when'; w.textContent = sub;
-  row.append(n, tag, w);
+  row.append(n, w);
   li.append(row);
   return li;
 }
 
+function libGroup(title, rows, cls) {
+  const sec = document.createElement('section');
+  sec.className = cls ? `grp ${cls}` : 'grp';
+  const h = document.createElement('h3');
+  const count = document.createElement('span'); count.textContent = String(rows.length);
+  h.append(title, count);
+  const ul = document.createElement('ul');
+  ul.append(...rows);
+  sec.append(h, ul);
+  return sec;
+}
+
+// Groups: captures still being analyzed, failed ones, then categories in order of their latest entry.
 function renderLibrary() {
   const cfg = loadCfg();
   const note = $('lib-note');
   note.textContent = lib.state === 'ok' || lib.state === 'empty' ? '' : STATE_TEXT[lib.state];
   const index = cfg && lib.repo === cfg.repo ? lib.index : null;
   const items = cfg ? mergeLibrary(index, historyFor(cfg), cfg.repo) : [];
+  const entries = items.filter((it) => it.kind === 'entry');
+  $('lib-count').textContent = entries.length ? `${entries.length} 筆` : '';
   if (!items.length) {
-    const li = document.createElement('li');
-    li.className = 'empty';
-    li.textContent = cfg ? STATE_TEXT.empty : '連結收藏庫之後，你的書庫會列在這裡。';
-    $('recent').replaceChildren(li);
+    const p = document.createElement('p');
+    p.className = 'empty';
+    p.textContent = cfg ? STATE_TEXT.empty : '連結收藏庫之後，你的書庫會列在這裡。';
+    $('recent').replaceChildren(p);
     return;
   }
   const gh = `https://github.com/${cfg.repo}`;
-  $('recent').replaceChildren(...items.map((it) => {
-    if (it.kind === 'entry') return libRow(`read.html#${it.stem}`, false, it.repo, CATEGORY_LABEL[it.category] || it.category || '收藏', 'done', it.intro);
-    if (it.kind === 'failed') return libRow(`${gh}/blob/main/inbox/failed/${it.id}.json`, true, it.repo, '失敗', 'failed', ago(it.at));
-    return libRow(`${gh}/actions`, true, it.repo, '分析中', 'pending', ago(it.at));
-  }));
+  const groups = [];
+  const pending = items.filter((it) => it.kind === 'pending');
+  const failed = items.filter((it) => it.kind === 'failed');
+  if (pending.length) groups.push(libGroup('分析中', pending.map((it) => libRow(`${gh}/actions`, true, it.repo, `分析中 · ${ago(it.at)}`))));
+  if (failed.length) groups.push(libGroup('失敗', failed.map((it) => libRow(`${gh}/blob/main/inbox/failed/${it.id}.json`, true, it.repo, `失敗 · ${ago(it.at)}`)), 'failed'));
+  const byCat = new Map();
+  for (const it of entries) {
+    const key = it.category || 'other';
+    if (!byCat.has(key)) byCat.set(key, []);
+    byCat.get(key).push(libRow(`read.html#${it.stem}`, false, it.repo, it.intro));
+  }
+  for (const [cat, rows] of byCat) groups.push(libGroup(CATEGORY_LABEL[cat] || cat, rows));
+  $('recent').replaceChildren(...groups);
 }
 
 // Coupled with publish.py: a processed capture moves to inbox/done/ or inbox/failed/ under the same name.
@@ -305,26 +323,6 @@ function drawerMessage(text, isError) {
   p.style.color = isError ? 'var(--err)' : '';
 }
 
-async function captureFromClipboard() {
-  let text = '';
-  try {
-    text = await navigator.clipboard.readText();
-  } catch {
-    setStatus('讀不到剪貼簿', 'err');
-    setHint('瀏覽器沒有給剪貼簿權限。把連結貼到下面的欄位，再按「收藏」。');
-    $('add-url').focus();
-    return;
-  }
-  const hit = findGitHubRepo(text);
-  if (!hit) {
-    setRepo('');
-    setStatus('沒找到連結', 'err');
-    setHint('剪貼簿裡沒有 GitHub repo 連結。先在 Threads 或 GitHub 複製連結再按一次。');
-    return;
-  }
-  submit(hit, { source: 'clipboard' });
-}
-
 function init() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
@@ -343,7 +341,6 @@ function init() {
     if (e.target === $('drawer') && outside) closeDrawer();
   });
   $('library').onclick = (e) => { if (!loadCfg()) { e.preventDefault(); openDrawer(); } };
-  $('paste').onclick = captureFromClipboard;
 
   $('settings').onsubmit = (e) => {
     e.preventDefault();

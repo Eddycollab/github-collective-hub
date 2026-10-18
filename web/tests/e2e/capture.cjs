@@ -37,7 +37,7 @@ const INDEX = fs.readFileSync(path.join(__dirname, 'fixtures/index.json'), 'utf8
   await run('index 200 + pending', { status: 200, body: INDEX }, 200, async ({ page, rows, note, label }) => {
     expect(`${label}: 4 rows, pending first`, rows.length === 4 && rows[0].includes('Fresh/Repo') && rows[0].includes('分析中'), rows.join(' / '));
     expect(`${label}: no error note`, note === '', note);
-    const href = await page.getAttribute('#recent li:nth-child(2) a', 'href');
+    const href = await page.getAttribute('#recent a[href^="read.html"]', 'href');
     expect(`${label}: entry links to the reading page`, /^read\.html#[a-z0-9._-]+__[a-z0-9._-]+$/.test(href), href);
     await page.click('#recent li a[href="read.html#xiaopuouo__openchatx-mcp"]');
     await page.waitForTimeout(300);

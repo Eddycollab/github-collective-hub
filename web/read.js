@@ -118,8 +118,7 @@ function renderRecord(cfg, stem, rec, svgRes, legacy) {
     const gh = el('a', 'gh', '在 GitHub 開啟 ↗'); gh.href = rec.url; gh.target = '_blank'; gh.rel = 'noopener';
     head.append(gh);
   }
-  const stars = Number.isInteger(rec.stars) ? `★ ${rec.stars.toLocaleString()}` : '—';
-  $('tblock').replaceChildren(head, cell('分類', CATEGORY_LABEL[rec.category] || text(rec.category) || '—'), cell('星數', stars),
+  $('tblock').replaceChildren(head, cell('分類', CATEGORY_LABEL[rec.category] || text(rec.category) || '—'), cell('授權', text(rec.license) || '—'),
     cell('語言', text(rec.language) || '—'), cell('收藏日', day(lastSeen(rec))));
   $('msg').hidden = true;
   $('tblock').hidden = false;
