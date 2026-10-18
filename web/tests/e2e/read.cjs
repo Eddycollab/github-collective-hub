@@ -139,6 +139,24 @@ const SHOTS = process.env.SHOTS || '';
     await done(`(k) repo ${repo}`, o);
   }
 
+  {
+    // 展開 must appear when a resize makes a previously fitting intro clamp.
+    const mid = JSON.stringify({ ...JSON.parse(ENTRY), intro: '這是一段中等長度的介紹文字，用來測試在寬螢幕上剛好放得下四行，但換到窄螢幕之後會超過四行而被截斷，這時候展開按鈕必須出現讓人能讀到完整內容，不然後半段文字就永遠看不到了，這樣不行。' });
+    o = await open({ routes: { [`/contents/library/${STEM}.json`]: { status: 200, body: mid } } });
+    const before = await o.page.isVisible('.sec .linkish:not(.more-eg)');
+    await o.page.setViewportSize({ width: 390, height: 844 }); await o.page.waitForTimeout(400);
+    const after = await o.page.isVisible('.sec .linkish:not(.more-eg)');
+    expect('(l) 展開 follows the intro after a resize', !before && after, `before=${before} after=${after}`);
+    await done('(l)', o);
+  }
+  {
+    const long = JSON.stringify({ ...JSON.parse(ENTRY), repo: 'some-really-long-organisation-name/an-even-longer-repository-name-here' });
+    o = await open({ vp: { width: 1000, height: 800 }, routes: { [`/contents/library/${STEM}.json`]: { status: 200, body: long } } });
+    const h = await o.page.evaluate(() => { const h1 = document.querySelector('.tblock h1'); const box = h1.parentElement.getBoundingClientRect(); return { fits: h1.scrollWidth <= h1.clientWidth + 1 && h1.getBoundingClientRect().right <= box.right + 1, title: h1.getAttribute('title') }; });
+    expect('(m) a long repo name is never silently clipped', h.fits || h.title === 'some-really-long-organisation-name/an-even-longer-repository-name-here', JSON.stringify(h));
+    await done('(m)', o);
+  }
+
   o = await open({ scheme: 'dark' });
   await done('(i) dark', o, 'read-dark');
 

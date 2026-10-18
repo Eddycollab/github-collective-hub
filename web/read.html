@@ -47,8 +47,8 @@
       .tblock { display: flex; align-items: stretch; }
       .tblock .back { margin: 8px 0 8px 10px; align-self: center; }
       .tblock .head { flex: 1; display: flex; align-items: baseline; gap: 12px; padding: 8px 14px; white-space: nowrap; overflow: hidden; }
-      .tblock h1 { font-size: 18px; flex: none; }
-      .tblock .sub { overflow: hidden; text-overflow: ellipsis; }
+      .tblock h1 { font-size: 18px; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+      .tblock .sub { flex: 1 1 0; min-width: 4em; overflow: hidden; text-overflow: ellipsis; }
       .tblock .cell, .tblock .gh { border-top: 0; border-left: 1.5px solid var(--ink); display: flex; align-items: baseline; gap: 8px; padding: 8px 14px; white-space: nowrap; flex: none; }
       .tblock .cell .lbl { display: inline; }
       .tblock .gh { align-items: center; }

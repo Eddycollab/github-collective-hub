@@ -84,7 +84,8 @@ function renderText(rec, legacy) {
     const more = el('button', 'linkish', '展開'); more.type = 'button'; more.hidden = true;
     more.onclick = () => { lead.classList.remove('clamp'); more.hidden = true; };
     kids.push(more);
-    requestAnimationFrame(() => { more.hidden = lead.scrollHeight <= lead.clientHeight + 1; });
+    const measure = () => { if (lead.classList.contains('clamp')) more.hidden = lead.scrollHeight <= lead.clientHeight + 1; };
+    new ResizeObserver(measure).observe(lead);
     const egs = el('div', 'egs');
     examples.forEach((x, i) => { const p = el('p', 'eg'); p.append(el('b', null, '例如'), el('span', null, x)); p.hidden = i > 0; egs.append(p); });
     if (examples.length > 1) {
@@ -127,7 +128,8 @@ function renderDiagram(cfg, stem, svgRes) {
 function renderRecord(cfg, stem, rec, svgRes, legacy) {
   const repo = text(rec.repo) || stem;
   const back = el('a', 'back', '← 收藏'); back.href = './';
-  const head = el('div', 'head'); head.append(el('h1', null, repo));
+  const h1 = el('h1', null, repo); h1.title = repo;
+  const head = el('div', 'head'); head.append(h1);
   if (text(rec.tagline)) head.append(el('p', 'sub', rec.tagline));
   const parts = [back, head, cell('分類', categoryLabel(text(rec.category)) || '—'), cell('授權', text(rec.license) || '—'),
     cell('語言', text(rec.language) || '—'), cell('收藏日', day(lastSeen(rec)))];
