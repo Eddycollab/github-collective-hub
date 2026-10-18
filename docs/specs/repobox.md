@@ -60,7 +60,7 @@
 
 ## 收藏端
 
-一個靜態網頁，同時是 Android 分享目標、電腦的貼上頁和書籤的落地頁。只做「收」，不做分析。
+一個靜態網頁，同時是 Android 分享目標、電腦的貼上頁、書籤的落地頁，以及收藏的閱讀入口。不做分析。
 
 - **Android 分享：** Web App Manifest 宣告 `share_target`（POST multipart，參數 `title`、`text`、`url`）。service worker 攔下 POST，把內容存成一次性交接資料，再導向 `#s=<id>`。很多 App 把網址放在 `text`，所以從三個欄位中抽出第一個 GitHub 網址。
 - **書籤：** `javascript:` 書籤只在 `github.com` 上執行。它開新視窗到收藏網頁，把網址、referrer 的網域和本機專屬的隨機碼放在 `#` 片段（不會送到伺服器）。referrer 的網域用來推斷出處（例如來自 `t.co` 就記為 x）。
@@ -70,7 +70,17 @@
 - **網址解析：** 用 `URL` 解析，網域必須完全等於 `github.com` 或 `www.github.com`；只拆解白名單內的轉址服務（`l.threads.com` 等），其他網域 query 裡的 GitHub 網址一律不認。
 - **貼上連結：** 任何瀏覽器都能用。從網頁版社群右鍵複製的連結可能是轉址包裝（例如 `l.threads.com/?u=...`），解析時要從 query 參數中解出 GitHub 網址。
 - **送出：** 本地先解析出 `owner/repo` 並驗證是 GitHub repo 網址，再用 Contents API 寫一個 `inbox/<id>.json`。成功就顯示「已收：owner/repo」；失敗就顯示錯誤加一個重試鈕。沒有離線佇列。
-- **設定：** repo 名稱與 token 存在瀏覽器本地；token 不進網址、不進 console。對外只連 `api.github.com`，不載入任何第三方分析程式。
+- **設定：** repo 名稱與 token 存在瀏覽器本地；token 不進網址、不進 console。對外只連 `api.github.com`，不載入任何第三方腳本（任何外部 JS 都讀得到這個網頁的 localStorage）。
+- **書庫清單（收藏頁右欄）：** 讀收藏庫的 `index.json` 列出全部條目，再把本機還在分析中或失敗的收藏放在最前面。`index.json` 讀不到時分成六種狀態顯示（空書庫、找不到收藏庫或無權限、token 失效、暫時連不到、目錄格式錯誤），任何情況下本機的分析中項目都照樣列出。點條目進閱讀頁。
+
+### 閱讀頁 `read.html#<stem>`
+
+- **入口：** 只從收藏頁的書庫清單進入，沒有自己的側邊欄；左上「← 收藏」回去選下一筆。`<stem>` 必須符合 `^[a-z0-9._-]+__[a-z0-9._-]+$` 才會拿去組 API 路徑。
+- **資料：** 用同一份 token 經 Contents API（`Accept: application/vnd.github.raw+json`）讀 `library/<stem>.json` 與 `.svg`，不經任何伺服器。沒有 sidecar 但出現在 `index.json` 的舊條目顯示「舊格式」狀態；缺的欄位整段省略。
+- **版面：** 電腦版（寬 ≥ 1000px）一個畫面看完、整頁不捲動：上方標題欄（repo／分類／星數／語言／收藏日），左邊架構圖，右邊 480px 欄放「這是什麼＋例如」「使用門檻」規格表，以及「值得借鏡／技術摘要／技術棧」分頁；高度不夠時只有右欄自己捲動。手機照常往下捲，兩側留白 24px。
+- **架構圖：** 打開時播放製圖動畫（分區 → 節點 → 連線沿資料流描繪 → 標籤）。點圖開燈箱，可縮放、拖曳，點節點看它和誰相連。
+- **SVG 安全：** 內嵌前在瀏覽器再過一次與 `validate.py` 相同的元素／屬性白名單。沒通過就**不顯示**，只放提示與 GitHub 原檔連結；絕不把它放進 `blob:`、`data:`、`<img>`、`<object>` 等任何同源可開啟的網址（直接打開會變成獨立 SVG 文件並執行其中腳本）。
+- **測試：** 純邏輯（`web/lib/*.mjs`）用 `node --test` 在 CI 跑；版面、信任檢查與錯誤狀態用 `web/tests/e2e/*.cjs`（Playwright）在本機跑。
 
 ## 資料格式
 
@@ -133,7 +143,7 @@ stack: [TypeScript, Node.js]
 ```
 
 - 去重以 `repo_id` 為準，repo 改名或轉移也不會變成兩篇（沿用舊檔名，只更新 frontmatter 的 `repo`、`url`）。
-- `.json` 內容：上面所有欄位加 `stars_at`、`sightings`（`{id, at, source, note}`，以 `id` 即收藏檔名為身分，重跑不會重複追加）、`analyzed_at`、`analysis`（model、turns、wall_s、rounds、deepwiki、diagram）。2026-10-18 以前的條目把這些放在 frontmatter，讀取時會合併，下次寫回時搬進 `.json`。
+- `.json` 內容：上面所有欄位加 `stars_at`、閱讀頁用的 `intro`、`examples`、`requirements`、`summary`、`highlights`、`sightings`（`{id, at, source, note}`，以 `id` 即收藏檔名為身分，重跑不會重複追加）、`analyzed_at`、`analysis`（model、turns、wall_s、rounds、deepwiki、diagram）。2026-10-18 以前的條目把這些放在 frontmatter，讀取時會合併，下次寫回時搬進 `.json`。
 - Action 只改 frontmatter 與 auto 標記之間的內容；不再產生「我的筆記」區（2026-10-18 使用者決定拿掉），但 end 標記之後若有人手寫內容，仍逐 byte 保留。
 - 來自模型或 GitHub metadata 的文字一律轉成純文字並跳脫 Markdown；裸網址與 email 包成 code span，不會變成可點的連結。
 - 同一個 repo 再收一次：只追加一筆 `sightings` 並更新星數，不重畫圖。重新分析靠 `workflow_dispatch`。
@@ -247,7 +257,7 @@ Claude 讀的是陌生 repo 的內容，要當成可能含有 prompt injection �
 
 ### Phase 2 以後（候選，不排序）
 
-- **閱讀頁：** 收藏網頁加一頁，讀 `index.json` 列出收藏，可搜尋、按分類篩選，點進去看摘要與架構圖（SVG 用 `<img>` 載入，不內嵌）。
+- **書庫清單的搜尋與分類篩選：** 收藏超過約 30 筆再做。
 - **Codex 訂閱執行器：** 先驗證 `auth.json` 在 CI 裡刷新後的保存方式，見「AI 執行器」。
 - **Discord 通知：** 處理完一筆就把摘要和架構圖發到頻道（webhook 存成 secret），成本極低。
 - **Discord 收藏入口：** 用過一陣子確定需要再評估。偏向用 Cloudflare Worker 架 Discord 指令（即時、不吃 Actions 分鐘數）；不採用 Actions 定時讀頻道（不即時，而且吃分鐘數）。

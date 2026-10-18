@@ -32,6 +32,7 @@
 ## 怎麼用
 
 - 分享或按書籤 → 收藏寫進 `inbox/`，約 2–10 分鐘後 `library/` 出現條目，`README.md` 是總目錄。
+- 收藏頁右邊的「書庫」列出全部收藏，點一筆進閱讀頁：架構圖會畫出來，點圖可以放大、看元件之間怎麼連。
 - 同一個 repo 再收一次只記「又看到一次」，不重跑分析。
 - 想重新分析：Actions → repobox → Run workflow，填網址。留空則處理 inbox 裡所有待處理的收藏。
 - 失敗的收藏在 `inbox/failed/`，裡面寫了原因。
@@ -44,5 +45,6 @@
 
 ## 開發
 
-- 單元測試：`python3 -m unittest discover -s action/tests`
+- 單元測試：`python3 -m unittest discover -s action/tests`、`node --test 'web/tests/*.test.mjs'`
+- 網頁情境測試（本機，需要 playwright-core）：`PW_CORE=<playwright-core 路徑> node web/tests/e2e/gate.cjs`（另有 `capture.cjs`、`read.cjs`）
 - workflow 檢查：`actionlint`
