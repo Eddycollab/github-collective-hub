@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    paths: ['action/**', '.github/**']
+    paths: ['action/**', 'web/**', '.github/**']
   pull_request:
 
 permissions:
@@ -17,6 +17,10 @@ jobs:
           persist-credentials: false
       - run: python3 -c "import yaml; print('pyyaml', yaml.__version__)"
       - run: python3 -m unittest discover -s action/tests -v
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - run: node --test 'web/tests/*.test.mjs'
 
   lint:
     runs-on: ubuntu-latest
