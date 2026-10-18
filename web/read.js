@@ -14,8 +14,7 @@ function loadCfg() {
 
 function showMessage(text) {
   for (const id of ['tblock', 'read']) $(id).hidden = true;
-  const back = el('a', null, '回收藏頁'); back.href = './';
-  $('msg').replaceChildren(el('p', null, text), back);
+  $('msg').replaceChildren(el('p', null, text));
   $('msg').hidden = false;
   document.title = 'RepoBox';
 }

@@ -77,6 +77,7 @@ const SHOTS = process.env.SHOTS || '';
 
   o = await open({ routes: { [`/contents/library/${STEM}.json`]: { status: 401, body: '{}' } } });
   expect('(d) 401 shows the token message', (await o.page.textContent('body')).includes('token 失效'), 'missing');
+  expect('(d) error page has exactly one back link', (await o.page.locator('a[href="./"]:visible').count()) === 1, String(await o.page.locator('a[href="./"]:visible').count()));
   await done('(d)', o);
 
   o = await open({ routes: { [`/contents/library/${STEM}.svg`]: { status: 200, body: SVG.replace('</svg>', '<script>window.__pwned=1</script></svg>') } } });
