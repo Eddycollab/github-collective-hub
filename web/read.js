@@ -114,6 +114,7 @@ function renderDiagram(cfg, stem, svgRes) {
 function renderRecord(cfg, stem, rec, svgRes, legacy) {
   const repo = text(rec.repo) || stem;
   const head = el('div'); head.append(el('h1', null, repo));
+  if (text(rec.tagline)) head.append(el('p', 'sub', rec.tagline));
   if (/^https:\/\/github\.com\//.test(text(rec.url))) {
     const gh = el('a', 'gh', '在 GitHub 開啟 ↗'); gh.href = rec.url; gh.target = '_blank'; gh.rel = 'noopener';
     head.append(gh);

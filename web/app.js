@@ -1,6 +1,6 @@
 'use strict';
 
-import { loadIndex, mergeLibrary, STATE_TEXT, CATEGORY_LABEL } from './lib/library.mjs';
+import { loadIndex, mergeLibrary, badges, STATE_TEXT, CATEGORY_LABEL } from './lib/library.mjs';
 
 const CFG_KEY = 'repobox.cfg';
 const RESERVED_OWNERS = new Set([
@@ -215,31 +215,36 @@ async function loadLib() {
   renderLibrary();
 }
 
-function libRow(href, external, name, sub) {
-  const li = document.createElement('li');
-  const row = document.createElement('a');
-  row.href = href;
-  if (external) { row.target = '_blank'; row.rel = 'noopener'; }
-  const n = document.createElement('span'); n.className = 'name'; n.textContent = name;
-  const w = document.createElement('span'); w.className = 'when'; w.textContent = sub;
-  row.append(n, w);
-  li.append(row);
-  return li;
+let libFilter = '';
+const PENDING = '__pending', FAILED = '__failed';
+
+function card(href, external, cls, title, repo, chips) {
+  const a = document.createElement('a');
+  a.className = cls ? `card ${cls}` : 'card';
+  a.href = href;
+  if (external) { a.target = '_blank'; a.rel = 'noopener'; }
+  const tl = document.createElement('span'); tl.className = 'tl'; tl.textContent = title;
+  const rp = document.createElement('span'); rp.className = 'rp'; rp.textContent = repo;
+  a.append(tl, rp);
+  if (chips.length) {
+    const bd = document.createElement('span'); bd.className = 'bd';
+    for (const c of chips) { const s = document.createElement('span'); s.textContent = c; bd.append(s); }
+    a.append(bd);
+  }
+  return a;
 }
 
-function libGroup(title, rows, cls) {
-  const sec = document.createElement('section');
-  sec.className = cls ? `grp ${cls}` : 'grp';
-  const h = document.createElement('h3');
-  const count = document.createElement('span'); count.textContent = String(rows.length);
-  h.append(title, count);
-  const ul = document.createElement('ul');
-  ul.append(...rows);
-  sec.append(h, ul);
-  return sec;
+function catButton(key, label, count) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.setAttribute('aria-pressed', String(libFilter === key));
+  const n = document.createElement('span'); n.textContent = String(count);
+  b.append(label, ' ', n);
+  b.onclick = () => { libFilter = key; renderLibrary(); };
+  return b;
 }
 
-// Groups: captures still being analyzed, failed ones, then categories in order of their latest entry.
+// Category index (全部, each category by size, then 分析中/失敗) and the cards for the chosen one.
 function renderLibrary() {
   const cfg = loadCfg();
   const note = $('lib-note');
@@ -247,7 +252,21 @@ function renderLibrary() {
   const index = cfg && lib.repo === cfg.repo ? lib.index : null;
   const items = cfg ? mergeLibrary(index, historyFor(cfg), cfg.repo) : [];
   const entries = items.filter((it) => it.kind === 'entry');
-  $('lib-count').textContent = entries.length ? `${entries.length} 筆` : '';
+  const pending = items.filter((it) => it.kind === 'pending');
+  const failed = items.filter((it) => it.kind === 'failed');
+  const counts = new Map();
+  for (const it of entries) { const k = it.category || 'other'; counts.set(k, (counts.get(k) || 0) + 1); }
+  const known = new Set(['', PENDING, FAILED, ...counts.keys()]);
+  if (!known.has(libFilter) || (libFilter === PENDING && !pending.length) || (libFilter === FAILED && !failed.length)) libFilter = '';
+
+  const cats = [catButton('', '全部', entries.length)];
+  const label = (k) => CATEGORY_LABEL[k] || k;
+  for (const [k, n] of [...counts].sort((a, b) => b[1] - a[1] || label(a[0]).localeCompare(label(b[0]), 'zh-Hant'))) cats.push(catButton(k, label(k), n));
+  if (pending.length || failed.length) { const sep = document.createElement('i'); sep.className = 'sep'; cats.push(sep); }
+  if (pending.length) cats.push(catButton(PENDING, '分析中', pending.length));
+  if (failed.length) cats.push(catButton(FAILED, '失敗', failed.length));
+  $('cats').replaceChildren(...(items.length ? cats : []));
+
   if (!items.length) {
     const p = document.createElement('p');
     p.className = 'empty';
@@ -256,19 +275,15 @@ function renderLibrary() {
     return;
   }
   const gh = `https://github.com/${cfg.repo}`;
-  const groups = [];
-  const pending = items.filter((it) => it.kind === 'pending');
-  const failed = items.filter((it) => it.kind === 'failed');
-  if (pending.length) groups.push(libGroup('分析中', pending.map((it) => libRow(`${gh}/actions`, true, it.repo, `分析中 · ${ago(it.at)}`))));
-  if (failed.length) groups.push(libGroup('失敗', failed.map((it) => libRow(`${gh}/blob/main/inbox/failed/${it.id}.json`, true, it.repo, `失敗 · ${ago(it.at)}`)), 'failed'));
-  const byCat = new Map();
-  for (const it of entries) {
-    const key = it.category || 'other';
-    if (!byCat.has(key)) byCat.set(key, []);
-    byCat.get(key).push(libRow(`read.html#${it.stem}`, false, it.repo, it.intro));
-  }
-  for (const [cat, rows] of byCat) groups.push(libGroup(CATEGORY_LABEL[cat] || cat, rows));
-  $('recent').replaceChildren(...groups);
+  const pendingCards = () => pending.map((it) => card(`${gh}/actions`, true, 'pending', it.repo, `分析中 · ${ago(it.at)}`, []));
+  const failedCards = () => failed.map((it) => card(`${gh}/blob/main/inbox/failed/${it.id}.json`, true, 'failed', it.repo, `分析失敗 · ${ago(it.at)}`, []));
+  const entryCards = (list) => list.map((it) => card(`read.html#${it.stem}`, false, '', it.tagline || it.intro || it.repo, it.repo, badges(it.requirements)));
+  let cards;
+  if (libFilter === PENDING) cards = pendingCards();
+  else if (libFilter === FAILED) cards = failedCards();
+  else if (libFilter) cards = entryCards(entries.filter((it) => (it.category || 'other') === libFilter));
+  else cards = [...pendingCards(), ...failedCards(), ...entryCards(entries)];
+  $('recent').replaceChildren(...cards);
 }
 
 // Coupled with publish.py: a processed capture moves to inbox/done/ or inbox/failed/ under the same name.

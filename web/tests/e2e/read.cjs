@@ -51,6 +51,7 @@ const SHOTS = process.env.SHOTS || '';
   expect('(a) 1440x900 fits one screen', m.sh === m.h && m.colOver <= 0, JSON.stringify(m));
   expect('(a) diagram inlined with nodes', m.nodes > 0, JSON.stringify(m));
   expect('(a) title is the repo', (await o.page.title()).startsWith('XiaoPuOuO/openchatx-mcp'), await o.page.title());
+  expect('(a) tagline under the repo name', (await o.page.textContent('.tblock .sub').catch(() => '')) === '用 ChatGPT 直接操作你的電腦', 'missing');
   await o.page.click('.fig'); await o.page.waitForTimeout(400);
   expect('(h) clicking the figure opens the lightbox', await o.page.isVisible('#lightbox'), 'hidden');
   await o.page.locator('#lightbox g.node').nth(4).click(); await o.page.waitForTimeout(200);

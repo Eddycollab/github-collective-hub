@@ -90,3 +90,25 @@ test('mergeLibrary drops malformed index entries instead of throwing', () => {
   const items = mergeLibrary(index, [], 'me/lib');
   assert.deepEqual(items.map((i) => i.stem), ['new__two', 'old__one']);
 });
+
+test('badges pull platform and cost hints from requirement lines', async () => {
+  const { badges } = await import('../lib/library.mjs');
+  assert.deepEqual(badges(['平台：Windows 10 或 11（64 位元），需要網路連線', '需要準備：自己的 AI 服務金鑰', '費用：程式免費，AI 服務依用量計費']), ['Windows', '需付模型費']);
+  assert.deepEqual(badges(['平台：macOS（Apple Silicon 或 Intel）或 Windows（x64 或 ARM）', '費用：軟體免費開源（MIT），使用一般 ChatGPT 對話額度']), ['macOS', 'Windows', '免費']);
+  assert.deepEqual(badges(['平台：Windows、macOS、Linux 都可以', '費用：免費']), ['跨平台', '免費']);
+  assert.deepEqual(badges(['平台：任何現代瀏覽器', '費用：需要訂閱 Pro 方案']), ['網頁', '訂閱']);
+  assert.deepEqual(badges(['不需安裝']), ['不需安裝']);
+  assert.deepEqual(badges(['費用：本身免費開源（MIT），模型使用費依你的 AI 服務方案計算']), ['需付模型費']);
+  assert.deepEqual(badges([]), []);
+  assert.deepEqual(badges(null), []);
+});
+
+test('mergeLibrary passes tagline and requirements through, typed', () => {
+  const idx = { entries: [{ repo: 'A/B', md: 'library/a__b.md', tagline: '一句副標', requirements: ['平台：Windows', 5], intro: 'i', category: 'x', last_seen: '2026-10-19T00:00:00Z' },
+    { repo: 'C/D', md: 'library/c__d.md', tagline: 7, requirements: 'nope', last_seen: '2026-10-18T00:00:00Z' }] };
+  const [ab, cd] = mergeLibrary(idx, [], 'me/lib');
+  assert.equal(ab.tagline, '一句副標');
+  assert.deepEqual(ab.requirements, ['平台：Windows']);
+  assert.equal(cd.tagline, '');
+  assert.deepEqual(cd.requirements, []);
+});

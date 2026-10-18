@@ -57,5 +57,6 @@
     "外部 MCP 與 Toolbox 的工具結構描述採延遲載入，讓 ChatGPT 的工具上下文保持精簡。",
     "跨對話摘要以 UUID 交接，保存壓縮摘要加最近約 8k token 內容，取用後自動刪除。",
     "API 金鑰與 OAuth 憑證存在作業系統憑證庫（Keychain／Credential Manager），不寫進設定檔。"
-  ]
+  ],
+  "tagline": "用 ChatGPT 直接操作你的電腦"
 }

@@ -24,7 +24,7 @@
       background-size: 40px 40px, 40px 40px, 8px 8px, 8px 8px;
     }
     .sheet {
-      height: 100dvh; max-width: 760px; margin: 0 auto;
+      height: 100dvh; max-width: 1180px; margin: 0 auto;
       padding: max(14px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
       display: flex; flex-direction: column; gap: 16px;
     }
@@ -68,29 +68,39 @@
     .block-actions { display: flex; gap: 8px; }
     .block-actions:empty { display: none; }
 
-    .recent { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-    .recent-head { display: flex; justify-content: space-between; align-items: baseline;
-                   border-bottom: 2px solid var(--line); padding-bottom: 6px; }
-    .recent-head h2 { font-size: 16px; margin: 0; }
-    .recent-head h2 span { font-weight: 400; color: var(--mute); font-size: 13px; margin-left: 6px; }
-    .recent-head a { font-size: 14px; color: var(--link); font-weight: 600; text-decoration: none; }
-    .lib-note { margin: 8px 0 0; font-size: 13px; color: var(--err); }
+    /* Library: a category index beside a card grid (desktop), a swipeable category row above it (phone). */
+    .lib { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+    .lib-head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid var(--line); padding-bottom: 6px; }
+    .lib-head h2 { font-size: 16px; margin: 0; }
+    .lib-head a { font-size: 14px; color: var(--link); font-weight: 600; text-decoration: none; }
+    .lib-note { margin: 0; font-size: 13px; color: var(--err); }
     .lib-note:empty { display: none; }
+    .lib-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+    .cats { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex: none; padding-bottom: 2px;
+            -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
+    .cats::-webkit-scrollbar { display: none; }
+    .cats button { flex: none; display: flex; align-items: baseline; gap: 6px; border: 1.5px solid var(--line); border-radius: 999px;
+                   background: var(--sheet); padding: 3px 12px; font-size: 14px; cursor: pointer; white-space: nowrap; }
+    .cats button span { font-size: 12px; color: var(--mute); font-variant-numeric: tabular-nums; }
+    .cats button[aria-pressed="true"] { background: var(--cyan); color: var(--cyan-ink); border-color: var(--cyan); font-weight: 600; }
+    .cats button[aria-pressed="true"] span { color: inherit; }
+    .cats .sep { display: none; }
     /* Scrolls inside the one-screen layout; the scrollbar stays hidden like the rest of the page. */
-    #recent { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding-bottom: 24px;
-              -webkit-mask-image: linear-gradient(#000 88%, transparent); mask-image: linear-gradient(#000 88%, transparent); }
+    #recent { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding: 2px 2px 28px;
+              display: grid; grid-template-columns: 1fr; gap: 12px; align-content: start; }
     #recent::-webkit-scrollbar { display: none; }
-    .grp { margin-top: 18px; }
-    .grp h3 { margin: 0 0 2px; font-size: 12.5px; font-weight: 600; color: var(--mute); display: flex; gap: 8px; align-items: baseline; }
-    .grp h3::after { content: ""; flex: 1; border-top: 1px solid var(--rule); transform: translateY(-3px); }
-    .grp h3 span { font-variant-numeric: tabular-nums; }
-    .grp ul { list-style: none; margin: 0; padding: 0; }
-    .grp li a { display: grid; gap: 1px; padding: 9px 2px; border-bottom: 1px solid var(--rule); color: inherit; text-decoration: none; }
-    .grp li a:hover .name { text-decoration: underline; }
-    .grp .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .grp .when { font-size: 13px; color: var(--mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .grp.failed .when { color: var(--err); }
+    .card { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1.5px solid var(--line); border-radius: 10px;
+            background: var(--sheet); color: inherit; text-decoration: none; min-width: 0; }
+    .card:hover { border-width: 2px; padding: 13.5px 15.5px; }
+    .card .tl { font-size: 17px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
+    .card .rp { font-size: 13px; color: var(--mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .card .bd { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .card .bd span { font-size: 12px; border: 1px solid var(--rule); border-radius: 4px; padding: 0 7px; color: var(--mute); }
+    .card.pending { border-style: dashed; }
+    .card.failed { border-color: var(--err); }
+    .card.failed .tl { color: var(--err); }
     #recent .empty { color: var(--mute); font-size: 14px; padding: 16px 2px; margin: 0; }
+    @media (min-width: 560px) { #recent { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
     dialog {
       width: min(460px, 100%); max-width: 100%; max-height: 92dvh; margin: auto auto 0;
@@ -113,6 +123,14 @@
     a.bm:not([href]) { cursor: default; color: var(--mute); border-color: var(--mute); }
     @media (min-width: 900px) {
       .sheet { padding-top: 32px; padding-bottom: 28px; gap: 18px; }
+      #add, .status { max-width: 760px; }
+      .lib-body { flex-direction: row; gap: 28px; }
+      .cats { flex-direction: column; overflow: visible; width: 200px; gap: 2px; align-self: start; padding: 8px;
+              background: var(--sheet); border: 1.5px solid var(--line); border-radius: 10px; -webkit-mask-image: none; mask-image: none; }
+      .cats button { justify-content: space-between; border: 0; border-radius: 8px; padding: 6px 10px; background: transparent; }
+      .cats button[aria-pressed="true"] { background: var(--cyan); }
+      .cats .sep { display: block; height: 1px; background: var(--rule); margin: 8px 4px; }
+      #recent { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
       dialog { margin: auto; border-bottom: 2px solid var(--line); border-radius: 16px; max-height: 86dvh; padding: 22px 24px; }
     }
     details { margin-top: 14px; font-size: 13px; color: var(--mute); }
@@ -140,13 +158,16 @@
       <div id="block-actions" class="block-actions"></div>
     </div>
 
-    <section class="recent">
-      <div class="recent-head">
-        <h2>書庫<span id="lib-count"></span></h2>
+    <section class="lib">
+      <div class="lib-head">
+        <h2>書庫</h2>
         <a id="library" href="#" target="_blank" rel="noopener">GitHub ↗</a>
       </div>
       <p id="lib-note" class="lib-note" role="status"></p>
-      <div id="recent"></div>
+      <div class="lib-body">
+        <nav id="cats" class="cats" aria-label="分類"></nav>
+        <div id="recent" aria-live="polite"></div>
+      </div>
     </section>
   </main>
 

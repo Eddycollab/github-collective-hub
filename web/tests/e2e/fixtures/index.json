@@ -32,7 +32,13 @@
       "md": "library/michael-denyer__pstack-claude.md",
       "last_seen": "2026-10-18T13:11:31+08:00",
       "sightings_n": 1,
-      "svg": "library/michael-denyer__pstack-claude.svg"
+      "svg": "library/michael-denyer__pstack-claude.svg",
+      "tagline": "讓 AI 寫程式照嚴謹流程做事",
+      "requirements": [
+        "平台：Claude Code、Codex、Pi、GitHub Copilot CLI，或 OpenCode、Gemini CLI 等能讀取技能資料夾的 AI 程式助理",
+        "需要準備：可用的 AI 模型帳號；處理 PR 的功能需先登入 GitHub CLI",
+        "費用：本身免費開源（MIT），模型使用量依你的 AI 服務方案計費"
+      ]
     },
     {
       "repo": "XiaoPuOuO/openchatx-mcp",
@@ -65,7 +71,13 @@
       "md": "library/xiaopuouo__openchatx-mcp.md",
       "last_seen": "2026-10-17T22:03:40+08:00",
       "sightings_n": 1,
-      "svg": "library/xiaopuouo__openchatx-mcp.svg"
+      "svg": "library/xiaopuouo__openchatx-mcp.svg",
+      "tagline": "用 ChatGPT 直接操作你的電腦",
+      "requirements": [
+        "平台：macOS（Apple Silicon 或 Intel）或 Windows（x64 或 ARM）；從原始碼安裝需 Node.js 22.18 以上",
+        "需要準備：ChatGPT 帳號（可建立自訂 MCP App）、OpenAI Platform 上建立的 Tunnel 與 API 金鑰",
+        "費用：軟體為 MIT 開源免費，使用一般 ChatGPT 聊天額度"
+      ]
     },
     {
       "repo": "SquirrelRay/LiveSummary",
@@ -98,7 +110,13 @@
       "md": "library/squirrelray__livesummary.md",
       "last_seen": "2026-10-17T21:19:43+08:00",
       "sightings_n": 1,
-      "svg": "library/squirrelray__livesummary.svg"
+      "svg": "library/squirrelray__livesummary.svg",
+      "tagline": "看直播時即時轉文字、做摘要",
+      "requirements": [
+        "平台：Windows 10 或 11（64 位元），下載解壓縮後直接執行，不用安裝",
+        "需要準備：網路連線、自己的 AI 服務 API 金鑰（存取 AI 服務的密碼，預設 Claude）；有 NVIDIA 顯示卡會更快",
+        "費用：程式免費；AI 服務依用量計費，預設模型翻譯外語直播約每小時 0.1 美元"
+      ]
     }
   ]
 }

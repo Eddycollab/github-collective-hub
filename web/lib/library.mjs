@@ -77,7 +77,8 @@ export function mergeLibrary(index, history, lib) {
   const str = (v) => (typeof v === 'string' ? v : '');
   const entries = (index && Array.isArray(index.entries) ? index.entries : [])
     .filter((e) => e && typeof e === 'object' && typeof e.repo === 'string' && typeof e.md === 'string')
-    .map((e) => ({ kind: 'entry', stem: stemOf(e.md), repo: e.repo, intro: str(e.intro), category: str(e.category), last_seen: str(e.last_seen) }))
+    .map((e) => ({ kind: 'entry', stem: stemOf(e.md), repo: e.repo, tagline: str(e.tagline), intro: str(e.intro), category: str(e.category),
+      requirements: Array.isArray(e.requirements) ? e.requirements.filter((r) => typeof r === 'string') : [], last_seen: str(e.last_seen) }))
     .filter((e) => e.stem && e.repo)
     .sort((a, b) => time(b.last_seen) - time(a.last_seen));
   const known = new Set(entries.map((e) => e.repo.toLowerCase()));
@@ -93,4 +94,27 @@ export function specRows(lines) {
     const m = /^([^：:]{1,8})[：:]\s*(.+)$/.exec(line);
     return m ? [m[1], m[2]] : [null, line];
   });
+}
+
+const OS = [['Windows', /windows/i], ['macOS', /mac\s?os|macos|\bmac\b|apple silicon/i], ['Linux', /linux/i],
+  ['iOS', /\bios\b|iphone|ipad/i], ['Android', /android/i]];
+
+// Short card labels derived from the 使用門檻 lines; anything unrecognised yields no badge.
+export function badges(requirements) {
+  const out = [];
+  for (const [label, text] of specRows(Array.isArray(requirements) ? requirements : [])) {
+    if (!label && /不需安裝/.test(text)) out.push('不需安裝');
+    if (label === '平台') {
+      const os = OS.map(([name, re]) => [name, text.search(re)]).filter(([, at]) => at >= 0).sort((x, y) => x[1] - y[1]).map(([name]) => name);
+      if (os.length >= 3) out.push('跨平台');
+      else if (os.length) out.push(...os);
+      else if (/瀏覽器|網頁|web/i.test(text)) out.push('網頁');
+    }
+    if (label === '費用') {
+      if (/訂閱|月費|年費/.test(text)) out.push('訂閱');
+      else if (/用量|計費|使用費|按次/.test(text)) out.push('需付模型費');
+      else if (/免費/.test(text)) out.push('免費');
+    }
+  }
+  return out.slice(0, 3);
 }

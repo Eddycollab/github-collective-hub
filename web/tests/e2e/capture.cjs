@@ -28,7 +28,7 @@ const INDEX = fs.readFileSync(path.join(__dirname, 'fixtures/index.json'), 'utf8
       localStorage.setItem('repobox.history', JSON.stringify([{ id: 'p1', repo: 'Fresh/Repo', lib: 'me/lib', at: new Date().toISOString(), state: 'pending' }]));
     });
     await page.reload(); await page.waitForTimeout(700);
-    const rows = await page.$$eval('#recent li', (lis) => lis.map((li) => li.textContent.trim()));
+    const rows = await page.$$eval('#recent .card', (cs) => cs.map((c) => c.textContent.trim()));
     const note = (await page.textContent('#lib-note')).trim();
     await check({ page, rows, note, label });
     expect(`${label}: no page errors`, errors.length === 0, errors.join(' | '));
@@ -39,7 +39,15 @@ const INDEX = fs.readFileSync(path.join(__dirname, 'fixtures/index.json'), 'utf8
     expect(`${label}: no error note`, note === '', note);
     const href = await page.getAttribute('#recent a[href^="read.html"]', 'href');
     expect(`${label}: entry links to the reading page`, /^read\.html#[a-z0-9._-]+__[a-z0-9._-]+$/.test(href), href);
-    await page.click('#recent li a[href="read.html#xiaopuouo__openchatx-mcp"]');
+    const cats = await page.$$eval('#cats button', (bs) => bs.map((b) => b.textContent.replace(/\s+/g, ' ').trim()));
+    expect(`${label}: category index lists 全部 and each category with counts`, cats[0] === '全部 3' && cats.some((c) => c === '桌面應用 1') && cats.some((c) => c === '分析中 1'), cats.join(' / '));
+    const live = await page.textContent('#recent a.card[href="read.html#squirrelray__livesummary"]');
+    expect(`${label}: card shows tagline and badges`, /Windows/.test(live) && /SquirrelRay\/LiveSummary/.test(live), live);
+    await page.click('#cats button:has-text("桌面應用")');
+    const only = await page.$$eval('#recent .card', (cs) => cs.map((c) => c.getAttribute('href')));
+    expect(`${label}: picking a category filters the cards`, only.length === 1 && only[0] === 'read.html#squirrelray__livesummary', only.join(' / '));
+    await page.click('#cats button:has-text("全部")');
+    await page.click('#recent a.card[href="read.html#xiaopuouo__openchatx-mcp"]');
     await page.waitForTimeout(300);
     expect(`${label}: click opens read.html#stem`, page.url().endsWith('read.html#xiaopuouo__openchatx-mcp'), page.url());
   });
@@ -76,7 +84,7 @@ const INDEX = fs.readFileSync(path.join(__dirname, 'fixtures/index.json'), 'utf8
     await page.reload(); await page.waitForTimeout(200);
     await page.click('#conn'); await page.fill('#repo', 'me/other'); await page.click('#settings button[type=submit]');
     await page.waitForTimeout(2200);
-    const rows = await page.$$eval('#recent li', (lis) => lis.map((li) => li.textContent.trim()));
+    const rows = await page.$$eval('#recent .card', (cs) => cs.map((c) => c.textContent.trim()));
     expect('switching repos ignores the late old index', rows.length === 1 && rows[0].includes('Bee/Only'), rows.join(' / '));
     expect('switching repos: no page errors', errors.length === 0, errors.join(' | '));
     await ctx.close();
@@ -91,7 +99,7 @@ const INDEX = fs.readFileSync(path.join(__dirname, 'fixtures/index.json'), 'utf8
     await page.goto(B);
     await page.evaluate(() => localStorage.setItem('repobox.cfg', JSON.stringify({ repo: 'me/lib', token: 't', nonce: 'n' })));
     await page.reload(); await page.waitForTimeout(700);
-    const n = await page.locator('#recent li a').count();
+    const n = await page.locator('#recent a.card').count();
     expect('malformed index rows are skipped, the rest render', n === 3 && errors.length === 0, `rows=${n} errors=${errors.join(' | ')}`);
     await ctx.close();
   }
@@ -108,7 +116,7 @@ const INDEX = fs.readFileSync(path.join(__dirname, 'fixtures/index.json'), 'utf8
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     for (let i = 0; i < 20; i += 1) await page.mouse.wheel(0, 400);
     await page.waitForTimeout(300);
-    const last = page.locator('#recent li a').last();
+    const last = page.locator('#recent .card').last();
     const lb = await last.boundingBox();
     const visible = lb && lb.y + lb.height <= box.y + box.height + 1 && lb.y >= box.y - 1;
     expect('long library scrolls to its last entry by wheel', visible, JSON.stringify({ box, lb }));
