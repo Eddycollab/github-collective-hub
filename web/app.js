@@ -148,8 +148,9 @@ async function submit(hit, ctx = {}) {
       $('timing').textContent = `${(totalMs / 1000).toFixed(1)} 秒`;
       $('clock').textContent = hhmm(now);
       setHint('分析約需 3–8 分鐘，完成後會出現在最近收藏。');
-      addHistory({ id, repo: `${hit.owner}/${hit.repo}`, at: now.toISOString(), state: 'pending' });
+      addHistory({ id, repo: `${hit.owner}/${hit.repo}`, lib: cfg.repo, at: now.toISOString(), state: 'pending' });
       renderRecent();
+      schedulePoll();
       if (window.opener) setTimeout(() => window.close(), 1500);
     } else {
       const body = await res.json().catch(() => ({}));
@@ -200,15 +201,19 @@ function ago(iso) {
 function itemLink(cfg, item) {
   if (!cfg) return null;
   const base = `https://github.com/${cfg.repo}`;
-  if (item.state === 'done') return `${base}/blob/main/library/${item.repo.replace('/', '__').toLowerCase()}.md`;
+  if (item.state === 'done') return item.md ? `${base}/blob/main/${item.md}` : base;
   if (item.state === 'failed') return `${base}/blob/main/inbox/failed/${item.id}.json`;
   return `${base}/actions`;
+}
+
+function historyFor(cfg) {
+  return loadHistory().filter((x) => cfg && x.lib === cfg.repo);
 }
 
 function renderRecent() {
   const cfg = loadCfg();
   const list = $('recent');
-  const items = loadHistory();
+  const items = historyFor(cfg);
   if (!items.length) {
     const li = document.createElement('li');
     li.className = 'empty';
@@ -237,26 +242,62 @@ function renderRecent() {
   }));
 }
 
-// Coupled with publish.py: processed captures move to inbox/done/ or inbox/failed/ under the same name.
+// Coupled with publish.py: a processed capture moves to inbox/done/ or inbox/failed/ under the
+// same name, and index.json maps canonical repo names to entry paths (renames keep old paths).
 async function refreshStates() {
   const cfg = loadCfg();
-  const items = loadHistory();
-  if (!cfg || !cfg.token || !items.some((x) => x.state === 'pending')) return;
-  const names = async (dir) => {
-    try {
-      const res = await fetch(`https://api.github.com/repos/${cfg.repo}/contents/inbox/${dir}`, { headers: ghHeaders(cfg) });
-      const data = res.ok ? await res.json() : [];
-      return new Set(Array.isArray(data) ? data.map((f) => f && f.name) : []);
-    } catch { return new Set(); }
+  if (!cfg || !cfg.token) return;
+  const pending = historyFor(cfg).filter((x) => x.state === 'pending');
+  if (!pending.length) return;
+  const api = `https://api.github.com/repos/${cfg.repo}/contents`;
+  const exists = async (path) => {
+    try { return (await fetch(`${api}/${path}`, { method: 'GET', headers: ghHeaders(cfg) })).ok; } catch { return false; }
   };
-  const [done, failed] = await Promise.all([names('done'), names('failed')]);
-  let changed = false;
-  for (const item of items) {
-    if (item.state !== 'pending') continue;
-    const next = done.has(`${item.id}.json`) ? 'done' : failed.has(`${item.id}.json`) ? 'failed' : 'pending';
-    if (next !== item.state) { item.state = next; changed = true; }
+  const updates = new Map();
+  for (const item of pending) {
+    if (await exists(`inbox/done/${item.id}.json`)) updates.set(item.id, { state: 'done' });
+    else if (await exists(`inbox/failed/${item.id}.json`)) updates.set(item.id, { state: 'failed' });
   }
-  if (changed) { saveHistory(items); renderRecent(); }
+  if (!updates.size) return;
+  if ([...updates.values()].some((u) => u.state === 'done')) {
+    const paths = await entryPaths(cfg);
+    for (const item of pending) {
+      const u = updates.get(item.id);
+      if (u && u.state === 'done') u.md = paths.get(item.repo.toLowerCase()) || null;
+    }
+  }
+  // Re-read: a capture may have been added while the requests were in flight.
+  const latest = loadHistory();
+  for (const item of latest) {
+    const u = updates.get(item.id);
+    if (u && item.lib === cfg.repo) Object.assign(item, u);
+  }
+  saveHistory(latest);
+  renderRecent();
+}
+
+async function entryPaths(cfg) {
+  const map = new Map();
+  try {
+    const res = await fetch(`https://api.github.com/repos/${cfg.repo}/contents/index.json`, {
+      headers: { ...ghHeaders(cfg), Accept: 'application/vnd.github.raw+json' },
+    });
+    const data = res.ok ? await res.json() : null;
+    for (const e of (data && Array.isArray(data.entries) ? data.entries : [])) {
+      if (e && typeof e.repo === 'string' && typeof e.md === 'string' && /^library\/[a-z0-9._-]+\.md$/.test(e.md)) {
+        map.set(e.repo.toLowerCase(), e.md);
+      }
+    }
+  } catch { /* fall back to the library root */ }
+  return map;
+}
+
+let pollTimer = null;
+function schedulePoll() {
+  clearTimeout(pollTimer);
+  const cfg = loadCfg();
+  if (document.hidden || !historyFor(cfg).some((x) => x.state === 'pending')) return;
+  pollTimer = setTimeout(async () => { await refreshStates(); schedulePoll(); }, 60000);
 }
 
 function openDrawer() {
@@ -347,7 +388,10 @@ function init() {
 
   if (!cfg || !cfg.token) openDrawer();
   handleIncoming(base, cfg);
-  refreshStates();
+  refreshStates().then(schedulePoll);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshStates().then(schedulePoll);
+  });
 }
 
 // Auto-write only when provenance is proven; everything else needs an explicit tap.
