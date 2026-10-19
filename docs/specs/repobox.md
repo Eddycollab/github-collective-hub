@@ -27,7 +27,7 @@
 ```
 收藏端（靜態網頁）              使用者的私人 repo                 GitHub Actions
  Android 分享 ─┐                                               ┌─ 1. 腳本：解析、查 metadata、去重
- 書籤按鈕   ───┼─ GitHub API ─▶ inbox/<id>.json ──push 觸發──▶ ├─ 2. Claude Code：clone、DeepWiki、
+ 書籤按鈕   ───┼─ GitHub API ─▶ inbox/<id>.json ──push 觸發──▶ ├─ 2. Claude Code：clone、讀程式碼、
  貼上連結   ───┘   (寫一個檔)                                  │      摘要分類、arch-blueprint 畫圖
                                 library/*.md + *.svg ◀────────┴─ 3. 腳本：驗證、寫入、更新目錄、commit
                                 README.md（自動目錄）、index.json
@@ -162,8 +162,8 @@ stack: [TypeScript, Node.js]
 
 1. **解析與查詢（腳本）：** 驗證收藏檔（`v`、網址、`captured_at`），呼叫 GitHub API 取得正式名稱、`repo_id`、metadata（自動跟隨改名轉址），只收公開 repo。以 `repo_id` 找既有條目；已經收過的（且不是強制重分析）只記 sighting，不跑 Claude。任何失敗都寫成 `failed` 狀態，交給寫回 job 搬到 `failed/`。
 2. **分析（Claude Code，用訂閱）：**
-   - 由腳本先對目標 repo 做淺層 clone。Claude 不自己發網路請求，DeepWiki MCP 除外。
-   - 參考資料：clone 下來的程式碼、README，以及 DeepWiki MCP（`https://mcp.deepwiki.com/mcp`，免費、免登入、只支援公開 repo）。DeepWiki 是選用的，查不到照樣跑。
+   - 由腳本先對目標 repo 做淺層 clone。Claude 不發任何網路請求、不掛任何 MCP server。
+   - 參考資料：clone 下來的程式碼與 README。（2026-10-19 拿掉 DeepWiki MCP：它是選用的，卻讓可能被 prompt injection 的 Claude 有一條對外送任意文字的通道。）
    - 輸出 `out/summary.json`：`tagline`（4–20 字白話副標，卡片的大字）、`intro`（30–300 字白話介紹）、`examples`（1–2 個使用情境、每個 10–120 字）、`requirements`（1–4 行使用門檻、每行 2–100 字）、`summary`（20–600 字、含中文）、`category`（taxonomy 之一）、`tags`（≤5，小寫）、`stack`（1–8 項）、`highlights`（2–3 句、每句 10–120 字、含中文）。限制寫在提示詞裡。
    - 輸出 `out/diagram.svg`：照 arch-blueprint 畫，提示詞要求跳過確認步、改為檢查每個節點都對應到實際路徑。
    - 修正迴圈：Claude 沒有 shell。summary 不合格 → 把驗證錯誤交回同一個對話（`--resume`）修一次；`check.py` 不過 → 把錯誤交回修，最多 2 輪。
@@ -181,9 +181,10 @@ Claude 讀的是陌生 repo 的內容，要當成可能含有 prompt injection �
 - 分析與寫回分成兩個 job。分析 job 的 `GITHUB_TOKEN` 只有 `contents: read`，產出用 artifact 交給寫回 job，寫回 job 不跑 Claude，而且重驗所有 artifact（見步驟 3）。
 - 私人 repo 的 stub 以 **40 字元 commit SHA** 引用 reusable workflow：它把寫入權與 Claude token 交給公開 repo 的程式碼，用分支名等於讓任何推上公開 main 的 commit 在私人 repo 裡執行。更新分析 Action = 推上 `repobox` main 後，到收藏 repo 手動改這個 SHA。
 - 限制靠 CLI 參數強制，不靠提示詞：
-  - Claude 在空的工作資料夾啟動，並使用 `--restricted`：不讀任何設定檔，檔案工具只能碰 `--add-dir` 列出的資料夾（目標 repo、arch-blueprint、`out/`）。
-  - 啟動前刪除目標 repo 每一層的 `.claude/`、`.mcp.json`、`CLAUDE.md`、`CLAUDE.local.md` 和 `.git`。
-  - `--tools Read Glob Grep Write Edit`：**沒有 Bash**。`--permission-mode dontAsk`，白名單外一律拒絕；只准寫入 `out/`（`Edit(//out/**)`，它同時放行該路徑的 Write）、加上 DeepWiki MCP；禁止讀取 `/proc`。
+  - Claude 在空的工作資料夾啟動，並使用 `--restricted`：不讀任何設定檔，檔案工具只能碰 `--add-dir` 列出的資料夾（目標 repo、arch-blueprint、`out/`）；另以 `--settings` 開 `blockReadsOutsideWorkingDirectories`，Read／Glob／Grep 再圍一次。
+  - 啟動前刪除目標 repo 每一層的 `.claude/`、`.mcp.json`、`CLAUDE.md`、`CLAUDE.local.md` 和 `.git`；clone 用 `core.symlinks=false`、再刪掉所有 symlink，避免透過連結讀到資料夾外。
+  - `--tools Read Glob Grep Write Edit`：**沒有 Bash**。`--permission-mode dontAsk`，白名單外一律拒絕；白名單只有 `Read(//<target>/**)`、`Read(//<arch-blueprint>/**)`、`Read(//<out>/**)` 與 `Edit(//<out>/**)`（它同時放行該路徑的 Write；`//` 開頭才是絕對路徑），Glob／Grep 套用同一組 Read 規則；禁止讀取 `/proc`、禁止所有 `mcp__*`。
+  - Claude token 只交給 `claude` 程序本身：step 一開始把它搬進不 export 的 shell 變數，`check.py`、`validate.py` 等解析模型輸出的腳本都拿不到。
   - `out/` 啟動時是空的、只放模型輸出；流程控制檔（item、meta、status、run 紀錄）放在 Claude 看不到的 `stage/`，上傳的是 `stage/`（2026-10-18 以正式參數本機演練：讀寫 `stage/` 都被拒）。
   - 不再使用 `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB`／bubblewrap：沒有 Bash 就沒有子程序可以拿到 token；而且 GitHub runner 的 AppArmor 擋下 bwrap（`bwrap: setting up uid map: Permission denied`，2026-10-17 實測），Bash 沙箱根本起不來。
   - arch-blueprint 釘在指定 commit 並設成唯讀；Claude Code 與 GitHub Actions 都釘版本。
