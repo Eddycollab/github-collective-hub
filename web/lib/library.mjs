@@ -36,9 +36,10 @@ function headers(cfg, accept) {
   return { Authorization: `Bearer ${cfg.token}`, Accept: accept, 'X-GitHub-Api-Version': '2022-11-28' };
 }
 
+// no-cache: the API answers with max-age=60, which would keep showing an entry just removed or published.
 export async function ghRaw(cfg, path, fetchImpl = fetch) {
   try {
-    const res = await fetchImpl(`${API}/${cfg.repo}/contents/${path}`, { headers: headers(cfg, 'application/vnd.github.raw+json') });
+    const res = await fetchImpl(`${API}/${cfg.repo}/contents/${path}`, { headers: headers(cfg, 'application/vnd.github.raw+json'), cache: 'no-cache' });
     return { status: res.status, text: res.ok ? await res.text() : null };
   } catch {
     return { status: 0, text: null };
@@ -74,6 +75,79 @@ export async function loadIndex(cfg, fetchImpl = fetch) {
     return { state: failState(repo), index: null };
   }
   return { state: failState(r.status), index: null };
+}
+
+async function ghJson(cfg, method, path, body, fetchImpl) {
+  const res = await fetchImpl(`${API}/${cfg.repo}${path}`, {
+    method, cache: 'no-cache', headers: { ...headers(cfg, 'application/vnd.github+json'), ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return { status: res.status, data: res.ok ? await res.json() : null };
+}
+
+class RemoveError extends Error {
+  constructor(status) { super(`GitHub ${status}`); this.status = status; }
+}
+const must = (r) => { if (!r.data) throw new RemoveError(r.status); return r.data; };
+
+export function withoutEntry(indexText, stem) {
+  const data = JSON.parse(indexText);
+  const entries = (Array.isArray(data.entries) ? data.entries : []).filter((e) => !(e && stemOf(e.md) === stem));
+  return JSON.stringify({ ...data, generated_at: new Date().toISOString().replace(/\.\d+Z$/, '+00:00'), count: entries.length, entries }, null, 2) + '\n';
+}
+
+// Coupled with index.py render_readme: entry lines are `- [owner/repo](library/<stem>.md) ...` and the
+// header reads `N 個 repo`. The next publish rebuilds README.md whole; this only keeps it from linking a deleted file.
+export function readmeWithout(readme, stem, count) {
+  const lines = readme.split('\n');
+  const kept = lines.filter((l) => !l.startsWith('- [') || !l.includes(`](library/${stem}.md)`));
+  if (kept.length === lines.length) return readme;
+  return count === null ? kept.join('\n') : kept.join('\n').replace(/^\d+ 個 repo/m, `${count} 個 repo`);
+}
+
+// Removes one entry in a single commit: library/<stem>.{md,json,svg}, its index.json row and its README line.
+// Retries when the branch moved under it (a publish landed in between). Returns 'ok', or 'gone' when nothing
+// referenced the stem any more; throws RemoveError and commits nothing when a read fails, so a retry can finish it.
+export async function removeEntry(cfg, stem, repoName, fetchImpl = fetch) {
+  if (!STEM_RE.test(stem)) throw new RemoveError(400);
+  const branch = must(await ghJson(cfg, 'GET', '', null, fetchImpl)).default_branch;
+  const ref = String(branch).split('/').map(encodeURIComponent).join('/');
+  const read = async (path, head) => {
+    const r = await ghRaw(cfg, `${path}?ref=${head}`, fetchImpl);
+    if (r.status !== 200 && r.status !== 404) throw new RemoveError(r.status);
+    return r.text;
+  };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const head = must(await ghJson(cfg, 'GET', `/git/ref/heads/${ref}`, null, fetchImpl)).object.sha;
+    const treeSha = must(await ghJson(cfg, 'GET', `/git/commits/${head}`, null, fetchImpl)).tree.sha;
+    const libDir = must(await ghJson(cfg, 'GET', `/git/trees/${treeSha}`, null, fetchImpl)).tree.find((t) => t.path === 'library' && t.type === 'tree');
+    const names = libDir ? must(await ghJson(cfg, 'GET', `/git/trees/${libDir.sha}`, null, fetchImpl)).tree.map((t) => t.path) : [];
+    const tree = ['md', 'json', 'svg'].map((x) => `${stem}.${x}`).filter((n) => names.includes(n))
+      .map((n) => ({ path: `library/${n}`, mode: '100644', type: 'blob', sha: null }));
+    const [idxText, readmeText] = [await read('index.json', head), await read('README.md', head)];
+    let count = null;
+    if (idxText !== null) {
+      try {
+        const before = JSON.parse(idxText).entries;
+        if (Array.isArray(before)) {
+          const content = withoutEntry(idxText, stem);
+          count = JSON.parse(content).count;
+          if (count !== before.length) tree.push({ path: 'index.json', mode: '100644', type: 'blob', content });
+        }
+      } catch { /* a malformed index is rebuilt by the next publish */ }
+    }
+    if (readmeText !== null) {
+      const content = readmeWithout(readmeText, stem, count);
+      if (content !== readmeText) tree.push({ path: 'README.md', mode: '100644', type: 'blob', content });
+    }
+    if (!tree.length) return 'gone';
+    const newTree = must(await ghJson(cfg, 'POST', '/git/trees', { base_tree: treeSha, tree }, fetchImpl)).sha;
+    const commit = must(await ghJson(cfg, 'POST', '/git/commits', { message: `remove: ${repoName || stem}`, tree: newTree, parents: [head] }, fetchImpl)).sha;
+    const moved = await ghJson(cfg, 'PATCH', `/git/refs/heads/${ref}`, { sha: commit, force: false }, fetchImpl);
+    if (moved.status === 200) return 'ok';
+    if (moved.status !== 422) throw new RemoveError(moved.status);
+  }
+  throw new RemoveError(409);
 }
 
 const time = (iso) => { const t = Date.parse(iso); return Number.isNaN(t) ? 0 : t; };

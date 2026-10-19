@@ -137,3 +137,129 @@ test('affirmative 無論/不論/不只 are not negations', async () => {
   assert.deepEqual(badges(['平台：不只 Windows，也支援 Linux']), ['Windows', 'Linux']);
   assert.deepEqual(badges(['平台：不管 macOS 還是 Windows 都行']), ['macOS', 'Windows']);
 });
+
+const README = '# RepoBox 收藏庫\n\n2 個 repo · 更新 2026-10-19\n\n## 最近收藏\n\n- [New/Two](library/new__two.md) ⭐ 3\n- [Old/One](library/old__one.md) ⭐ 1\n\n## 分類\n\n### other\n\n- [Old/One](library/old__one.md) ⭐ 1\n';
+
+test('withoutEntry and readmeWithout drop exactly one entry', async () => {
+  const { withoutEntry, readmeWithout } = await import('../lib/library.mjs');
+  const out = JSON.parse(withoutEntry(JSON.stringify({ generated_at: 'x', count: 3, entries: INDEX.entries }), 'old__one'));
+  assert.deepEqual(out.entries.map((e) => e.repo), ['New/Two', 'Bad/Path']);
+  assert.equal(out.count, 2);
+  const rd = readmeWithout(README, 'old__one', 1);
+  assert.ok(!rd.includes('old__one') && rd.includes('[New/Two](library/new__two.md)') && rd.includes('\n1 個 repo'));
+});
+
+const gitFake = (refMoves = 0) => {
+  const calls = [];
+  let moves = refMoves;
+  const fetchImpl = async (url, opts = {}) => {
+    const path = url.replace('https://api.github.com/repos/me/lib', '');
+    const method = opts.method || 'GET';
+    calls.push({ method, path, body: opts.body ? JSON.parse(opts.body) : null });
+    const json = (o, status = 200) => new Response(JSON.stringify(o), { status });
+    if (method === 'GET' && path === '') return json({ default_branch: 'main' });
+    if (path === '/git/ref/heads/main') return json({ object: { sha: 'c1' } });
+    if (path === '/git/commits/c1') return json({ tree: { sha: 't1' } });
+    if (path === '/git/trees/t1') return json({ tree: [{ path: 'library', type: 'tree', sha: 'l1' }] });
+    if (path === '/git/trees/l1') return json({ tree: [{ path: 'old__one.md' }, { path: 'old__one.json' }, { path: 'new__two.md' }] });
+    if (path === '/contents/index.json?ref=c1') return new Response(JSON.stringify(INDEX), { status: 200 });
+    if (path === '/contents/README.md?ref=c1') return new Response(README, { status: 200 });
+    if (path === '/git/trees') return json({ sha: 't2' }, 201);
+    if (path === '/git/commits') return json({ sha: 'c2' }, 201);
+    if (path === '/git/refs/heads/main') return moves-- > 0 ? json({ message: 'not fast forward' }, 422) : json({});
+    return json({ message: 'Not Found' }, 404);
+  };
+  return { calls, fetchImpl };
+};
+
+test('removeEntry deletes the existing files and rewrites index and README in one commit', async () => {
+  const { removeEntry } = await import('../lib/library.mjs');
+  const g = gitFake();
+  assert.equal(await removeEntry(CFG, 'old__one', 'Old/One', g.fetchImpl), 'ok');
+  const tree = g.calls.find((c) => c.path === '/git/trees').body;
+  assert.equal(tree.base_tree, 't1');
+  assert.deepEqual(tree.tree.filter((t) => t.sha === null).map((t) => t.path), ['library/old__one.md', 'library/old__one.json']);
+  const idx = JSON.parse(tree.tree.find((t) => t.path === 'index.json').content);
+  assert.ok(!idx.entries.some((e) => e.md === 'library/old__one.md'));
+  assert.ok(!tree.tree.find((t) => t.path === 'README.md').content.includes('old__one'));
+  assert.deepEqual(g.calls.find((c) => c.path === '/git/commits').body.parents, ['c1']);
+  assert.deepEqual(g.calls.find((c) => c.method === 'PATCH').body, { sha: 'c2', force: false });
+});
+
+test('removeEntry retries when the branch moved and gives up after three tries', async () => {
+  const { removeEntry } = await import('../lib/library.mjs');
+  const once = gitFake(1);
+  assert.equal(await removeEntry(CFG, 'old__one', 'Old/One', once.fetchImpl), 'ok');
+  assert.equal(once.calls.filter((c) => c.method === 'PATCH').length, 2);
+  await assert.rejects(removeEntry(CFG, 'old__one', 'Old/One', gitFake(5).fetchImpl), (e) => e.status === 409);
+});
+
+test('removeEntry reports gone when nothing is left and refuses bad stems', async () => {
+  const { removeEntry } = await import('../lib/library.mjs');
+  const g = gitFake();
+  assert.equal(await removeEntry(CFG, 'nobody__here', 'x', g.fetchImpl), 'gone');
+  assert.ok(!g.calls.some((c) => c.method !== 'GET'));
+  await assert.rejects(removeEntry(CFG, '../x', 'x', g.fetchImpl), (e) => e.status === 400);
+});
+
+test('removeEntry commits nothing when index.json or README.md cannot be read', async () => {
+  const { removeEntry } = await import('../lib/library.mjs');
+  for (const path of ['/contents/index.json?ref=c1', '/contents/README.md?ref=c1']) {
+    const g = gitFake();
+    const inner = g.fetchImpl;
+    g.fetchImpl = async (url, opts) => (url.endsWith(path) ? new Response('{}', { status: 502 }) : inner(url, opts));
+    await assert.rejects(removeEntry(CFG, 'old__one', 'Old/One', g.fetchImpl), (e) => e.status === 502, path);
+    assert.ok(!g.calls.some((c) => c.method !== 'GET'), path);
+  }
+});
+
+test('removeEntry finishes a half-done removal and encodes the branch', async () => {
+  const { removeEntry } = await import('../lib/library.mjs');
+  const g = gitFake();
+  const inner = g.fetchImpl;
+  g.fetchImpl = async (url, opts) => {
+    const u = url.replace('/heads/release%231', '/heads/main');
+    if (url.endsWith('/repos/me/lib')) return new Response(JSON.stringify({ default_branch: 'release#1' }), { status: 200 });
+    return inner(u, opts);
+  };
+  assert.equal(await removeEntry(CFG, 'bad__path', 'Bad/Path', g.fetchImpl), 'gone');
+  const g2 = gitFake();
+  assert.equal(await removeEntry(CFG, 'new__two', 'New/Two', g2.fetchImpl), 'ok');
+  const tree = g2.calls.find((c) => c.path === '/git/trees').body.tree;
+  assert.deepEqual(tree.map((t) => t.path), ['library/new__two.md', 'index.json', 'README.md']);
+  const ghost = gitFake();
+  const base = ghost.fetchImpl;
+  ghost.fetchImpl = async (url, opts) => (url.endsWith('/git/trees/l1') ? new Response(JSON.stringify({ tree: [] }), { status: 200 }) : base(url, opts));
+  assert.equal(await removeEntry(CFG, 'old__one', 'Old/One', ghost.fetchImpl), 'ok');
+  assert.deepEqual(ghost.calls.find((c) => c.path === '/git/trees').body.tree.map((t) => t.path), ['index.json', 'README.md']);
+});
+
+test('removeEntry repairs README links and count when index.json already dropped the entry', async () => {
+  const { removeEntry } = await import('../lib/library.mjs');
+  const g = gitFake();
+  const inner = g.fetchImpl;
+  const idx = { entries: INDEX.entries.filter((e) => e.md !== 'library/old__one.md') };
+  g.fetchImpl = async (url, opts) => {
+    if (url.endsWith('/git/trees/l1')) return new Response(JSON.stringify({ tree: [] }), { status: 200 });
+    if (url.endsWith('/contents/index.json?ref=c1')) return new Response(JSON.stringify(idx), { status: 200 });
+    return inner(url, opts);
+  };
+  assert.equal(await removeEntry(CFG, 'old__one', 'Old/One', g.fetchImpl), 'ok');
+  const tree = g.calls.find((c) => c.path === '/git/trees').body.tree;
+  assert.deepEqual(tree.map((t) => t.path), ['README.md']);
+  assert.ok(!tree[0].content.includes('old__one') && tree[0].content.includes('\n2 個 repo'));
+});
+
+test('removeEntry leaves the README count alone when index.json has no entries array', async () => {
+  const { removeEntry } = await import('../lib/library.mjs');
+  for (const body of ['{"count":2}', '{"entries":null}', 'not json']) {
+    const g = gitFake();
+    const inner = g.fetchImpl;
+    g.fetchImpl = async (url, opts) => (url.endsWith('/contents/index.json?ref=c1') ? new Response(body, { status: 200 }) : inner(url, opts));
+    assert.equal(await removeEntry(CFG, 'old__one', 'Old/One', g.fetchImpl), 'ok', body);
+    const tree = g.calls.find((c) => c.path === '/git/trees').body.tree;
+    assert.ok(!tree.some((t) => t.path === 'index.json'), body);
+    const rd = tree.find((t) => t.path === 'README.md').content;
+    assert.ok(!rd.includes('old__one') && rd.includes('\n2 個 repo'), body);
+  }
+});

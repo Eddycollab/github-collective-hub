@@ -157,6 +157,25 @@ const SHOTS = process.env.SHOTS || '';
     await done('(m)', o);
   }
 
+  {
+    const j = (body) => ({ status: 200, body: JSON.stringify(body) });
+    const git = { '': j({ default_branch: 'main' }), '/git/ref/heads/main': j({ object: { sha: 'c1' } }), '/git/commits/c1': j({ tree: { sha: 't1' } }),
+      '/git/trees/t1': j({ tree: [{ path: 'library', type: 'tree', sha: 'l1' }] }), '/git/trees/l1': j({ tree: [{ path: `${STEM}.md` }, { path: `${STEM}.json` }, { path: `${STEM}.svg` }] }),
+      '/contents/index.json?ref=c1': { status: 200, body: INDEX }, '/git/trees': j({ sha: 't2' }), '/git/commits': j({ sha: 'c2' }), '/git/refs/heads/main': j({}) };
+    o = await open({ routes: git });
+    o.page.once('dialog', (d) => d.dismiss());
+    await o.page.click('.tblock .rm'); await o.page.waitForTimeout(300);
+    expect('(n) cancelling the confirm writes nothing', !o.calls.some((c) => c.startsWith('/git/')), o.calls.join(','));
+    o.page.once('dialog', (d) => d.accept());
+    await o.page.click('.tblock .rm'); await o.page.waitForURL((u) => !u.pathname.endsWith('read.html'), { timeout: 3000 }).catch(() => {});
+    expect('(n) confirming commits and returns to the library', o.calls.includes('/git/refs/heads/main') && !o.page.url().includes('read.html'), `${o.page.url()} ${o.calls.join(',')}`);
+    await done('(n)', o);
+    o = await open({ vp: { width: 390, height: 844 } });
+    const rm = await o.page.evaluate(() => { const r = document.querySelector('.tblock .rm').getBoundingClientRect(), g = document.querySelector('.tblock .gh').getBoundingClientRect(); return { sameRow: Math.abs(r.top - g.top) < 2, h: r.height }; });
+    expect('(n) phone: 移除 sits beside the GitHub link', rm.sameRow && rm.h >= 28, JSON.stringify(rm));
+    await done('(n) phone', o, 'read-phone-rm');
+  }
+
   o = await open({ scheme: 'dark' });
   await done('(i) dark', o, 'read-dark');
 
