@@ -1,6 +1,6 @@
 # RepoBox
 
-[English](README.en.md) | **繁體中文**
+**繁體中文** | [English](README.en.md)
 
 滑 Threads、X 看到不錯的 GitHub 專案，按一下分享就收進你自己的私人 repo。幾分鐘後，你自己的 Claude 訂閱會讀完那個專案，寫好白話介紹、使用門檻、技術摘要和一張架構圖。
 

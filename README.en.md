@@ -1,6 +1,6 @@
 # RepoBox
 
-**English** | [繁體中文](README.md)
+[繁體中文](README.md) | **English**
 
 You spot a good GitHub project while scrolling Threads or X, tap Share, and it lands in your own private repo. A few minutes later your own Claude subscription has read the project and written a plain-language overview, what it takes to use it, a technical summary and an architecture diagram.
 
