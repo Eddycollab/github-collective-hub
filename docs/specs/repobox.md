@@ -231,7 +231,7 @@ Claude 讀的是陌生 repo 的內容，要當成可能含有 prompt injection �
 
 - [x] Android：Threads 內建瀏覽器的 `⋯` →「分享方式…」會叫出系統分享選單，帶的是完整、乾淨的 GitHub 網址（2026-10-17 實機確認）
 - [x] Android：RepoBox PWA 安裝後會出現在這個分享選單裡，並收到同一個網址（2026-10-17 實機：網址放在 `text` 欄位，API 1.4 秒，從開啟到寫入 2.0 秒）
-- [ ] Android：X 內建瀏覽器同樣測一次
+- [ ] ~~Android：X 內建瀏覽器同樣測一次~~ 結案時未測（2026-10-23）；X 的分享選單若不帶網址，改用貼上連結
 - [x] Claude Code CLI 搭配 `CLAUDE_CODE_OAUTH_TOKEN` 在 runner 上跑得起來（2026-10-17：`workflow_dispatch` 與手機分享後的 `push` 自動觸發都通過；push 只分析新增的那一筆）
 - [x] arch-blueprint 無人值守模式在 Actions 的 ubuntu runner 上產出通過 `check.py` 的 SVG（2026-10-17，SquirrelRay/LiveSummary：0 錯誤 0 警告）
 - [x] 量測每筆分析花的 Actions 分鐘數與牆鐘時間（2026-10-17，一個小型 Python repo：Claude 409 秒、job 7 分 16 秒、21 turns，API 等價成本 US$1.72，由訂閱額度支付）
@@ -260,6 +260,8 @@ Claude 讀的是陌生 repo 的內容，要當成可能含有 prompt injection �
 
 ### Phase 2 以後（候選，不排序）
 
+專案已於 2026-10-23 結案，以下不再排入開發；留作 fork 的人擴充參考。
+
 - **書庫清單的搜尋與分類篩選：** 收藏超過約 30 筆再做。
 - **Codex 訂閱執行器：** 先驗證 `auth.json` 在 CI 裡刷新後的保存方式，見「AI 執行器」。
 - **Discord 通知：** 處理完一筆就把摘要和架構圖發到頻道（webhook 存成 secret），成本極低。
@@ -270,9 +272,9 @@ Claude 讀的是陌生 repo 的內容，要當成可能含有 prompt injection �
 - **最小瀏覽器擴充：** 工具列按鈕加右鍵選單，只有在書籤不夠用時才做。
 - **iOS：** 捷徑或 Discord 入口。
 
-## 待決問題
+## 已結案的問題（2026-10-23 結案時依現況定案）
 
-- **正式名稱：** 「RepoBox」是暫名，候選 Snapfork；定名前先確認 GitHub 組織名與網域。
-- **一次分享多個網址：** 分享內容含多個 GitHub 網址時，全部收，還是讓使用者選？
-- **預設分類：** `taxonomy.yml` 預設分類清單的最終版。
-- ~~**重新分析：**~~ 已決（2026-10-18）：再收不重跑，只記 sighting；要重跑就用 `workflow_dispatch` 指定網址。
+- **正式名稱：** 維持 RepoBox（README、網域 `repobox.cholate.dev` 都已使用）。
+- **一次分享多個網址：** 只收第一個有效的 GitHub repo 網址（`web/app.js` 的 `findGitHubRepo`）。
+- **預設分類：** 採 `action/scripts/taxonomy.py` 的 `DEFAULT`；個人收藏庫可在 `taxonomy.yml` 自行增補。
+- **重新分析：** 已決（2026-10-18）：再收不重跑，只記 sighting；要重跑就用 `workflow_dispatch` 指定網址。
