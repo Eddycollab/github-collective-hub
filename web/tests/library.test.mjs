@@ -98,6 +98,7 @@ test('badges pull platform and cost hints from requirement lines', async () => {
   assert.deepEqual(badges(['平台：Windows、macOS、Linux 都可以', '費用：免費']), ['跨平台', '免費']);
   assert.deepEqual(badges(['平台：任何現代瀏覽器', '費用：需要訂閱 Pro 方案']), ['網頁', '訂閱']);
   assert.deepEqual(badges(['不需安裝']), ['不需安裝']);
+  assert.deepEqual(badges(['平台：Windows', '限制：只在 Linux 測過，免費版有次數上限']), ['Windows']);
   assert.deepEqual(badges(['費用：本身免費開源（MIT），模型使用費依你的 AI 服務方案計算']), ['需付模型費']);
   assert.deepEqual(badges([]), []);
   assert.deepEqual(badges(null), []);
