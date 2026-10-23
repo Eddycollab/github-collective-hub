@@ -52,14 +52,6 @@
 2. 打開收藏網頁的設定，填上 `<帳號>/repobox-library` 和這把 token。
 3. Android 把網頁加到主畫面，分享選單就有 RepoBox；電腦把網頁上的書籤按鈕拖到書籤列。
 
-### 之後要更新
-
-收藏 repo 呼叫的分析流程釘在固定版本，本 repo 更新後不會自動套用。想用新版時：
-
-1. 到本 repo 的 **Commits** 頁，按最新一筆旁邊的複製按鈕，拿到 40 字元的完整 SHA。
-2. 到你的 `repobox-library` 打開 `.github/workflows/repobox.yml`，按鉛筆編輯，把 `uses:` 那行 `@` 後面的 SHA 換掉，Commit。
-3. 本 repo 的 fork 也按 **Sync fork** 更新，收藏網頁才會是新版（沒更新的話，到 **Actions → pages → Run workflow** 再跑一次）。
-
 ## 隱私與安全
 
 - token 只存在你自己裝置的瀏覽器，只會送到 `api.github.com`。網頁不載入任何第三方程式碼。

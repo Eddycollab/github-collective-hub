@@ -52,14 +52,6 @@ The page will be at `https://<username>.github.io/repobox/`.
 2. Open the collection page's settings and enter `<username>/repobox-library` and this token.
 3. On Android, add the page to your home screen and RepoBox appears in the share menu; on a computer, drag the bookmark button on the page to your bookmarks bar.
 
-### Updating later
-
-The analysis workflow your library repo calls is pinned to a fixed version, so updates to this repo do not reach it on their own. To move to a newer version:
-
-1. On this repo's **Commits** page, click the copy button next to the latest commit to get its full 40-character SHA.
-2. In your `repobox-library`, open `.github/workflows/repobox.yml`, click the pencil to edit, replace the SHA after `@` on the `uses:` line, and commit.
-3. Also click **Sync fork** on your fork of this repo so the collection page is up to date (if it does not change, run **Actions → pages → Run workflow** once more).
-
 ## Privacy & security
 
 - The token is stored only in the browser on your own device and is sent only to `api.github.com`. The page loads no third-party code.
