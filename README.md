@@ -30,7 +30,7 @@
 
 ## 安裝
 
-需要：GitHub 帳號、Claude Pro 或 Max 訂閱，以及裝好 Claude Code 的電腦（產生 token 用）。全程在 GitHub 網頁上點，只有第 2 步要在終端機打一行指令。
+需要：GitHub 帳號、Claude 訂閱 (其他家應該也行)，以及裝好 Claude Code 的電腦（產生 token 用）。全程在 GitHub 網頁上點，只有第 2 步要在終端機打一行指令。
 
 ### 1. 架收藏網頁
 
