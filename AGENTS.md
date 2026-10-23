@@ -33,6 +33,7 @@
 ## Conventions
 
 - Conventional commits（`type(scope): 摘要`）；README 維持 zh-TW（`kit.toml readme_lang`）。
+- `README.en.md` 是 `README.md` 的英文鏡像，兩份必須在同一個 commit 一起更新。
 - GitHub Actions: top-level `permissions: contents: read`, raised per job only when needed.
 - GitHub Actions: pin every `uses:` to a 40-character commit SHA with a trailing `# vX.Y.Z` comment.
 
