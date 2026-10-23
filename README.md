@@ -46,7 +46,7 @@
 
 PS. 要換成其他模型廠商也行，我想概念是一樣的，讓訂閱模型可以跑在你那份 repo action 中
 
-### 3. 每台裝置連一次
+### 3. 每台手機/電腦裝置進入上面的網頁設定一次
 
 1. GitHub **Settings → Developer settings → Fine-grained tokens** 建一把 token：只選 `repobox-library`，權限只開 **Contents: Read and write**。
 2. 打開收藏網頁的設定，填上 `<帳號>/repobox-library` 和這把 token。
