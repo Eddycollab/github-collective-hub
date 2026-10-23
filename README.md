@@ -60,10 +60,6 @@
 - 架構圖在顯示前會再過一次白名單，有問題的圖只顯示提示，不會被執行。
 - 建議幫收藏網頁綁一個自訂子網域：同一個 `<帳號>.github.io` 底下的其他網站讀得到這個網頁存的 token。
 
-## 專案狀態
-
-功能已完成，不再加新功能。想擴充（例如支援其他 AI 訂閱、Discord 通知）就 fork 自己改。
-
 ## 授權
 
 [MIT](LICENSE)。架構圖由 [arch-blueprint](https://github.com/cholateio/arch-blueprint) 繪製。

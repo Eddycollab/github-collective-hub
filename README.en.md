@@ -60,10 +60,6 @@ The page will be at `https://<username>.github.io/repobox/`.
 - Architecture diagrams pass an allowlist check once more before they are shown; a diagram that fails shows only a notice and is never executed.
 - Consider giving the collection page a custom subdomain: other sites under the same `<username>.github.io` can read the token this page stores.
 
-## Project status
-
-Feature-complete; no new features are planned. To extend it (for example, other AI subscriptions or Discord notifications), fork it and change it yourself.
-
 ## License
 
 [MIT](LICENSE). Architecture diagrams are drawn by [arch-blueprint](https://github.com/cholateio/arch-blueprint).
