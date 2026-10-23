@@ -8,7 +8,7 @@
 
 - **收得快**：手機分享選單或電腦書籤列，一下就收進來，不用開別的 App。
 - **看得懂**：「這是什麼」用白話寫，附一個實際例子；「使用門檻」列出平台、要準備什麼、要不要錢。
-- **看得到架構**：每個專案都有一張架構圖，點節點就看它連到哪些元件。
+- **看得到架構**：每個專案都有一張架構圖，點節點就看它連到哪些元件。畫圖的是 [arch-blueprint](https://github.com/cholateio/arch-blueprint) skill，也能裝進你自己的 Claude Code、Codex 等工具，替任何專案畫圖。
 - **資料是你的**：結果是 Markdown 加 SVG，存在你自己的私人 repo，GitHub、Obsidian、VS Code 都能直接讀。
 
 <p>
@@ -32,7 +32,7 @@
 
 ## 安裝
 
-需要：GitHub 帳號、Claude 訂閱 (其他家應該也行)，以及裝好 Claude Code 的電腦（產生 token 用）。全程在 GitHub 網頁上點，只有第 2 步要在終端機打一行指令。
+需要：GitHub 帳號、Claude 訂閱（目前只支援 Claude，ChatGPT 等其他訂閱還不能用），以及裝好 Claude Code 的電腦（產生 token 用）。全程在 GitHub 網頁上點，只有第 2 步要在終端機打一行指令。
 
 ### 1. 架收藏網頁
 
@@ -46,13 +46,19 @@
 1. 打開 [repobox-library-template](https://github.com/cholateio/repobox-library-template)，按 **Use this template → Create a new repository**，名稱填 `repobox-library`，選 **Private**。
 2. 在裝了 [Claude Code](https://claude.com/claude-code) 的終端機執行 `claude setup-token`，登入後會印出一串 token。到 `repobox-library` 的 **Settings → Secrets and variables → Actions → New repository secret**，名稱填 `CLAUDE_CODE_OAUTH_TOKEN`，貼上 token。
 
-PS. 要換成其他模型廠商也行，我想概念是一樣的，讓訂閱模型可以跑在你那份 repo action 中
-
 ### 3. 每台手機/電腦裝置進入第一步的網頁設定一次
 
 1. GitHub 頭像 **Settings → Developer settings → Personal access token → Fine-grained tokens** 建一把 token：只選私人的 `repobox-library`，權限只開 **Contents: Read and write**。
 2. 打開收藏網頁的設定，填上 `<帳號>/repobox-library` 和這把 token。
 3. Android 把網頁加到主畫面，分享選單就有 RepoBox；電腦把網頁上的書籤按鈕拖到書籤列。
+
+### 之後要更新
+
+收藏 repo 呼叫的分析流程釘在固定版本，本 repo 更新後不會自動套用。想用新版時：
+
+1. 到本 repo 的 **Commits** 頁，按最新一筆旁邊的複製按鈕，拿到 40 字元的完整 SHA。
+2. 到你的 `repobox-library` 打開 `.github/workflows/repobox.yml`，按鉛筆編輯，把 `uses:` 那行 `@` 後面的 SHA 換掉，Commit。
+3. 本 repo 的 fork 也按 **Sync fork** 更新，收藏網頁才會是新版（沒更新的話，到 **Actions → pages → Run workflow** 再跑一次）。
 
 ## 隱私與安全
 

@@ -8,7 +8,7 @@ You spot a good GitHub project while scrolling Threads or X, tap Share, and it l
 
 - **Fast to save**: one tap from your phone's share menu or your computer's bookmarks bar, without opening another app.
 - **Easy to follow**: "What it is" is written in plain language with one real example; "What it takes" lists the platforms, what you need to prepare and whether it costs money.
-- **Architecture you can see**: every project gets an architecture diagram; click a node to see which components it connects to.
+- **Architecture you can see**: every project gets an architecture diagram; click a node to see which components it connects to. The diagrams come from the [arch-blueprint](https://github.com/cholateio/arch-blueprint) skill, which you can also install in your own Claude Code, Codex or similar tools to draw any project.
 - **Your data stays yours**: results are Markdown plus SVG, stored in your own private repo, and GitHub, Obsidian and VS Code can all read them directly.
 
 <p>
@@ -32,7 +32,7 @@ There is no server, no database and no shared website. The web page is GitHub Pa
 
 ## Install
 
-You need a GitHub account, a Claude subscription (other providers should work too), and a computer with Claude Code installed (to generate a token). Everything is done by clicking through the GitHub website; only step 2 needs one command in a terminal.
+You need a GitHub account, a Claude subscription (only Claude is supported for now; ChatGPT and other subscriptions do not work yet), and a computer with Claude Code installed (to generate a token). Everything is done by clicking through the GitHub website; only step 2 needs one command in a terminal.
 
 ### 1. Set up the collection page
 
@@ -46,13 +46,19 @@ The page will be at `https://<username>.github.io/repobox/`.
 1. Open [repobox-library-template](https://github.com/cholateio/repobox-library-template), click **Use this template → Create a new repository**, name it `repobox-library` and choose **Private**.
 2. In a terminal with [Claude Code](https://claude.com/claude-code) installed, run `claude setup-token`; after you sign in it prints a token. In `repobox-library`, go to **Settings → Secrets and variables → Actions → New repository secret**, name it `CLAUDE_CODE_OAUTH_TOKEN` and paste the token.
 
-Note: another model provider should also work; the idea is the same, letting your subscription model run in your repo's Actions.
-
 ### 3. Set up each phone or computer once, on the page from step 1
 
 1. From your GitHub avatar, go to **Settings → Developer settings → Personal access token → Fine-grained tokens** and create a token: select only your private `repobox-library` and grant only **Contents: Read and write**.
 2. Open the collection page's settings and enter `<username>/repobox-library` and this token.
 3. On Android, add the page to your home screen and RepoBox appears in the share menu; on a computer, drag the bookmark button on the page to your bookmarks bar.
+
+### Updating later
+
+The analysis workflow your library repo calls is pinned to a fixed version, so updates to this repo do not reach it on their own. To move to a newer version:
+
+1. On this repo's **Commits** page, click the copy button next to the latest commit to get its full 40-character SHA.
+2. In your `repobox-library`, open `.github/workflows/repobox.yml`, click the pencil to edit, replace the SHA after `@` on the `uses:` line, and commit.
+3. Also click **Sync fork** on your fork of this repo so the collection page is up to date (if it does not change, run **Actions → pages → Run workflow** once more).
 
 ## Privacy & security
 
