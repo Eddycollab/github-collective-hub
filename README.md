@@ -43,6 +43,7 @@
 
 1. 打開 [repobox-library-template](https://github.com/cholateio/repobox-library-template)，按 **Use this template → Create a new repository**，名稱填 `repobox-library`，選 **Private**。
 2. 在裝了 [Claude Code](https://claude.com/claude-code) 的終端機執行 `claude setup-token`，登入後會印出一串 token。到收藏 repo 的 **Settings → Secrets and variables → Actions → New repository secret**，名稱填 `CLAUDE_CODE_OAUTH_TOKEN`，貼上 token。
+
 PS. 要換成其他模型廠商也行，我想概念是一樣的，讓 claude 可以跑在你那份 repo action 中
 
 ### 3. 每台裝置連一次
