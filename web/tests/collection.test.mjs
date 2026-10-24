@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { buildItems, filterItems, sortItems, viewCounts, tagCounts, markDuplicates, patchUser, exportBackup, planImport,
-  makeCapture, normalizeEntry, tagVocabulary, cleanTags } from '../lib/collection.mjs';
+  makeCapture, normalizeEntry, tagVocabulary, cleanTags, jobState } from '../lib/collection.mjs';
 import { extractTargets } from '../lib/github-url.mjs';
 
 const demo = (p) => JSON.parse(readFileSync(new URL(`../demo/${p}`, import.meta.url), 'utf8'));
@@ -37,6 +37,68 @@ test('two skills in one repo are two items; a re-analysis capture attaches to it
   const pptx = skills.find((s) => s.skillPath === 'skills/pptx-builder');
   assert.deepEqual([pptx.kind, pptx.job, pptx.jobReanalyze], ['entry', 'queued', true]);
   assert.equal(items.length, 5);
+});
+
+// Job state across several captures of one target, ordered by time against the entry's last update.
+const entryOf = (key) => normalizeEntry(INDEX.entries.find((e) => (e.key || '') === key));
+const shift = (iso, minutes) => new Date(Date.parse(iso) + minutes * 60000).toISOString();
+const repoCap = (repo, at, extra = {}) => ({ id: `id-${repo}-${at}`, at, capture: makeCapture({ item_type: 'repository', repo }, {}, at), ...extra });
+const skillCap = (path, at, extra = {}) => ({ id: `id-${path}-${at}`, at, capture: makeCapture({ item_type: 'skill', repo: 'collective-demo/agent-skills', ref: 'main', path }, {}, at), ...extra });
+const FORGE = 'repository:collective-demo/slide-forge';
+const PPTX = 'skill:collective-demo/agent-skills:skills/pptx-builder', NOTES = 'skill:collective-demo/agent-skills:skills/meeting-notes';
+
+test('a failure older than the last successful update is history: the entry shows as analyzed', () => {
+  const updated = entryOf(FORGE).updatedAt;
+  const old = repoCap('collective-demo/slide-forge', shift(updated, -30), { error: 'summary: cannot read summary.json' });
+  assert.equal(jobState({ entry: { updatedAt: updated }, failed: [old] }).job, 'succeeded');
+  const forge = buildItems({ index: INDEX, user: USER, failed: [old] }).find((i) => i.key === FORGE);
+  assert.deepEqual([forge.kind, forge.job, forge.jobError, forge.status], ['entry', 'succeeded', '', 'analyzed']);
+});
+
+test('a failure after the last success keeps the analysis and reports the newer failure', () => {
+  const updated = entryOf(FORGE).updatedAt;
+  const old = repoCap('collective-demo/slide-forge', shift(updated, -30), { error: 'old 401' });
+  const fresh = repoCap('collective-demo/slide-forge', shift(updated, 30), { error: 'claude: 401 Invalid bearer token' });
+  const forge = buildItems({ index: INDEX, user: USER, failed: [fresh, old] }).find((i) => i.key === FORGE);
+  assert.deepEqual([forge.kind, forge.job, forge.jobError, forge.jobId], ['entry', 'failed', 'claude: 401 Invalid bearer token', fresh.id]);
+  assert.ok(forge.tagline, 'the earlier analysis stays on the card');
+  assert.equal(forge.status, 'analyzed');
+});
+
+test('pending or running work wins over any failure', () => {
+  const updated = entryOf(FORGE).updatedAt;
+  const failed = [repoCap('collective-demo/slide-forge', shift(updated, 30), { error: 'boom' })];
+  const queued = [repoCap('collective-demo/slide-forge', shift(updated, 10))];
+  const pick = (opts) => buildItems({ index: INDEX, user: USER, failed, queued, ...opts }).find((i) => i.key === FORGE).job;
+  assert.equal(pick({}), 'queued');
+  assert.equal(pick({ running: true }), 'running');
+  // A share this device sent that the inbox listing has not caught up with yet.
+  const history = [{ id: 'h1', repo: 'collective-demo/slide-forge', state: 'pending', at: shift(updated, 40), capture: queued[0].capture }];
+  assert.equal(buildItems({ index: INDEX, user: USER, failed, history }).find((i) => i.key === FORGE).job, 'queued');
+});
+
+test('a target with no entry: newest capture decides, failures stay visible', () => {
+  const t = '2026-10-24T09:00:00Z';
+  const failed = [repoCap('someone/new-tool', t, { error: 'claude: 401' })];
+  const only = buildItems({ index: INDEX, user: USER, failed }).find((i) => i.repo === 'someone/new-tool');
+  assert.deepEqual([only.kind, only.job, only.jobError], ['capture', 'failed', 'claude: 401']);
+  const again = buildItems({ index: INDEX, user: USER, failed, queued: [repoCap('someone/new-tool', shift(t, 5))] }).filter((i) => i.repo === 'someone/new-tool');
+  assert.deepEqual(again.map((i) => i.job), ['queued'], 'one card, now waiting');
+});
+
+test('skills match on the full target: a failure never leaks to the repository or a sibling skill', () => {
+  const pptx = entryOf(PPTX), notes = entryOf(NOTES);
+  const later = shift([pptx.updatedAt, notes.updatedAt].sort().at(-1), 60);
+  const failed = [skillCap('skills/pptx-builder', later, { error: 'skill failed' }), repoCap('collective-demo/agent-skills', later, { error: 'repo failed' })];
+  const items = buildItems({ index: INDEX, user: USER, failed });
+  const byKey = (k) => items.find((i) => i.key === k);
+  assert.deepEqual([byKey(PPTX).job, byKey(PPTX).jobError], ['failed', 'skill failed']);
+  assert.equal(byKey(NOTES).job, 'succeeded');
+  const repo = byKey('repository:collective-demo/agent-skills');
+  assert.deepEqual([repo.kind, repo.job, repo.jobError], ['capture', 'failed', 'repo failed']);
+  // An old failure of one skill is history once that skill is re-analyzed.
+  const old = [skillCap('skills/pptx-builder', shift(pptx.updatedAt, -5), { error: 'old' })];
+  assert.equal(buildItems({ index: INDEX, user: USER, failed: old }).find((i) => i.key === PPTX).job, 'succeeded');
 });
 
 test('views, tag filter (all selected tags), search and sorting', () => {

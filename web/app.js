@@ -169,7 +169,7 @@ function renderTagFilter() {
 function jobLabel(it) {
   if (it.job === 'succeeded') return null;
   if (it.kind === 'entry') {
-    if (it.job === 'failed') return it.jobReanalyze ? '重新分析失敗' : '最近一次收藏處理失敗';
+    if (it.job === 'failed') return it.jobReanalyze ? '重新分析失敗' : '最近一次更新失敗';
     return it.jobReanalyze ? '等待重新分析' : '記錄分享中';
   }
   return { queued: '等待分析', running: '分析中', failed: '分析失敗' }[it.job];

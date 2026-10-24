@@ -82,41 +82,64 @@ export function userItem(user, key) {
   return u && typeof u === 'object' ? u : null;
 }
 
+// When a queued or failed capture happened: failed_at / captured_at, else the capture's own time.
+const captureTime = (c) => time(c.at) || time(c.capture && c.capture.captured_at);
+const newestCapture = (list) => list.reduce((a, c) => (!a || captureTime(c) > captureTime(a) ? c : a), null);
+
+// The job state of one target from all its captures. Pending work wins; a failure counts only when
+// it is newer than the entry's last successful update, so an old failure followed by a success no
+// longer shows (its inbox/failed file stays as history). `entry` is null for a target with no entry.
+export function jobState({ entry = null, queued = [], failed = [], running = false } = {}) {
+  const q = newestCapture(queued);
+  if (q) return { job: running ? 'running' : 'queued', capture: q };
+  const f = newestCapture(failed);
+  const updated = entry ? time(entry.updatedAt) : 0;
+  if (f && (!entry || !updated || captureTime(f) > updated)) return { job: 'failed', capture: f };
+  return entry ? { job: 'succeeded', capture: null } : null;
+}
+
 // Builds the list. Captures whose key already has an entry become that entry's job state (a
-// re-analysis or a repeat share), not a second card.
+// re-analysis or a repeat share), not a second card. Keys are full targets, so a skill's captures
+// never touch its repository's entry or a sibling skill.
 export function buildItems({ index, user, queued = [], failed = [], running = false, history = [] } = {}) {
   const entries = (index && Array.isArray(index.entries) ? index.entries : []).map(normalizeEntry).filter(Boolean);
   const byKey = new Map(entries.map((e) => [e.key, e]));
-  const captures = new Map();
-  const addCapture = (c, job) => {
+  const groups = new Map();
+  const addCapture = (c, kind) => {
     const t = captureTarget(c.capture);
     if (!t) return;
-    const existing = byKey.get(t.key);
-    if (existing) {
-      if (!existing.job || job === 'failed' || time(c.at) > time(existing.jobAt)) Object.assign(existing, { job, jobAt: c.at, jobError: c.error || '', jobId: c.id, jobReanalyze: Boolean(c.capture.reanalyze) });
-      return;
-    }
-    const prev = captures.get(t.key);
-    if (prev && time(prev.capturedAt) >= time(c.capture.captured_at || c.at)) return;
-    captures.set(t.key, {
-      kind: 'capture', key: t.key, stem: null, itemType: t.itemType, repo: t.repo, url: `https://github.com/${t.repo}`,
-      skillName: '', skillPath: t.path, ref: t.ref, tagline: '', intro: '', problem: '', description: '', category: '',
-      keywords: [], suggestedTags: [], captureTags: cleanTags(c.capture.tags), requirements: [], license: '',
-      sources: c.capture.source ? [str(c.capture.source)] : [], capturedAt: str(c.capture.captured_at || c.at), firstSeen: str(c.capture.captured_at),
-      analyzedAt: '', updatedAt: '', hasSvg: false, sightings: 1, job, jobAt: c.at, jobError: c.error || '', jobId: c.id,
-      capture: c.capture, note: str(c.capture.note),
-    });
+    if (!groups.has(t.key)) groups.set(t.key, { t, queued: [], failed: [] });
+    groups.get(t.key)[kind].push(c);
   };
   for (const c of failed) addCapture(c, 'failed');
-  for (const c of queued) addCapture(c, running ? 'running' : 'queued');
+  for (const c of queued) addCapture(c, 'queued');
   // Captures this device sent that the inbox listing has not caught up with yet.
   // Upstream history rows carry no capture; their repo is enough to show them as waiting.
   for (const h of Array.isArray(history) ? history : []) {
     if (!h || h.state !== 'pending' || [...queued, ...failed].some((c) => c.id === h.id)) continue;
     const capture = h.capture || { v: 1, url: `https://github.com/${h.repo}`, captured_at: h.at };
-    addCapture({ id: h.id, at: h.at, capture }, running ? 'running' : 'queued');
+    addCapture({ id: h.id, at: h.at, capture }, 'queued');
   }
-  const items = [...captures.values(), ...entries];
+  const captures = [];
+  for (const [key, g] of groups) {
+    const existing = byKey.get(key);
+    const s = jobState({ entry: existing || null, queued: g.queued, failed: g.failed, running });
+    const jc = s.capture;
+    const job = jc ? { job: s.job, jobAt: jc.at, jobError: s.job === 'failed' ? jc.error || '' : '', jobId: jc.id, jobReanalyze: Boolean(jc.capture.reanalyze) } : { job: s.job, jobError: '' };
+    if (existing) { Object.assign(existing, job); continue; }
+    // The card shows the most recently captured share of this target.
+    const c = [...g.queued, ...g.failed].reduce((a, x) => (time(x.capture.captured_at || x.at) > time(a.capture.captured_at || a.at) ? x : a));
+    const t = g.t;
+    captures.push({
+      kind: 'capture', key, stem: null, itemType: t.itemType, repo: t.repo, url: `https://github.com/${t.repo}`,
+      skillName: '', skillPath: t.path, ref: t.ref, tagline: '', intro: '', problem: '', description: '', category: '',
+      keywords: [], suggestedTags: [], captureTags: cleanTags(c.capture.tags), requirements: [], license: '',
+      sources: c.capture.source ? [str(c.capture.source)] : [], capturedAt: str(c.capture.captured_at || c.at), firstSeen: str(c.capture.captured_at),
+      analyzedAt: '', updatedAt: '', hasSvg: false, sightings: 1, ...job,
+      capture: c.capture, note: str(c.capture.note),
+    });
+  }
+  const items = [...captures, ...entries];
   for (const it of items) {
     const u = userItem(user, it.key);
     it.userEdited = Boolean(u && Array.isArray(u.tags));

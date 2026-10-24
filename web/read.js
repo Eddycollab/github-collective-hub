@@ -3,7 +3,7 @@
 import { prepareSvg, rejectedNotice, wire, draft, mountLightbox } from './lib/diagram.mjs';
 import { parseStem, stemOf, ghRaw, loadIndex, loadUser, saveUser, loadInbox, writeCapture, requeueFailed, removeEntry, specRows,
   categoryLabel, useTransport, errorText, isoLocal, STATE_TEXT } from './lib/library.mjs';
-import { patchUser, userItem, captureTarget, makeCapture, cleanTag, tagVocabulary, buildItems, ITEM_TYPE_LABEL, USER_STATUS, SOURCE_LABEL } from './lib/collection.mjs';
+import { patchUser, userItem, captureTarget, jobState, makeCapture, cleanTag, tagVocabulary, buildItems, ITEM_TYPE_LABEL, USER_STATUS, SOURCE_LABEL } from './lib/collection.mjs';
 import { repoKey, skillKey, skillUrl } from './lib/github-url.mjs';
 import { loadCfg, isDemo, addHistory, DEMO_REPO } from './lib/config.mjs';
 import { demoTransport } from './lib/demo.mjs';
@@ -250,15 +250,18 @@ async function reanalyze(rec, btn, tell) {
   } catch (e) { tell(errorText(e, '排入重新分析'), true); btn.disabled = false; }
 }
 
-// Queued / failed captures for this key (a re-analysis or a repeat share in progress).
+// Queued / failed captures for this key (a re-analysis or a repeat share in progress). A failure
+// older than this entry's last update is history, not the current state.
 function jobNotice() {
   if (!page.inbox) return null;
   const mine = (c) => { const t = captureTarget(c.capture); return t && t.key === page.key; };
-  const failed = page.inbox.failed.filter(mine).sort((a, b) => (a.id < b.id ? 1 : -1))[0];
   const queued = page.inbox.queued.filter(mine);
-  if (queued.length) return el('p', 'job', queued.some((c) => c.capture.reanalyze) ? '重新分析排隊中，完成後內容會更新。' : '有一筆新的分享正在記錄中。');
-  if (!failed) return null;
-  const p = el('p', 'job failed', `最近一次處理失敗：${failed.error || '未知錯誤'}`);
+  const entry = { updatedAt: text(page.rec && (page.rec.updated_at || page.rec.analyzed_at)) };
+  const s = jobState({ entry, queued, failed: page.inbox.failed.filter(mine) });
+  if (s.job === 'queued') return el('p', 'job', queued.some((c) => c.capture.reanalyze) ? '重新分析排隊中，完成後內容會更新。' : '有一筆新的分享正在記錄中。');
+  if (s.job !== 'failed') return null;
+  const failed = s.capture;
+  const p = el('p', 'job failed', `最近一次更新失敗（以下仍是先前的分析）：${failed.error || '未知錯誤'}`);
   const retry = el('button', 'linkish', '重新排入'); retry.type = 'button';
   retry.onclick = async () => {
     if (isDemo(loadCfg())) { p.textContent = STATE_TEXT.demo; return; }

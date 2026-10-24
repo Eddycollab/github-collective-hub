@@ -176,6 +176,30 @@ const SHOTS = process.env.SHOTS || '';
     await done('(n) phone', o, 'read-phone-rm');
   }
 
+  {
+    // Job notice follows time: a failure before the entry's last analysis is history; a newer one shows.
+    const analyzed = JSON.parse(ENTRY).analyzed_at;
+    const at = (min) => new Date(Date.parse(analyzed) + min * 60000).toISOString();
+    const fail = (id, min, error, capture = { v: 2, item_type: 'repository', url: 'https://github.com/XiaoPuOuO/openchatx-mcp', captured_at: at(min - 1) }) =>
+      ({ [`/contents/inbox/failed/${id}.json`]: { status: 200, body: JSON.stringify({ error, failed_at: at(min), capture }) } });
+    const list = (ids) => ({ '/contents/inbox': { status: 200, body: '[]' },
+      '/contents/inbox/failed': { status: 200, body: JSON.stringify(ids.map((id) => ({ type: 'file', name: `${id}.json`, path: `inbox/failed/${id}.json`, sha: id }))) } });
+    const notice = async (pg) => (await pg.textContent('.job').catch(() => '')) || '';
+    const OLD = '20261018-100000-0000aaaa', NEW = '20261018-120000-0000bbbb', SK = '20261018-130000-0000cccc';
+    o = await open({ routes: { ...list([OLD]), ...fail(OLD, -30, 'summary: cannot read summary.json') } });
+    expect('(o) a failure older than the analysis shows no failure notice', !(await o.page.isVisible('.job.failed')), await notice(o.page));
+    await done('(o) old failure', o);
+    o = await open({ routes: { ...list([OLD, NEW]), ...fail(OLD, -30, 'old'), ...fail(NEW, 30, 'claude: 401 Invalid bearer token') } });
+    const t = await notice(o.page);
+    expect('(o) a newer failure shows as the latest update failing, analysis kept', t.includes('最近一次更新失敗') && t.includes('401') && (await o.page.isVisible('.tblock h1')), t);
+    await done('(o) new failure', o);
+    const skill = { v: 2, item_type: 'skill', url: 'https://github.com/XiaoPuOuO/openchatx-mcp/tree/main/skills/x', captured_at: at(59),
+      target: { item_type: 'skill', repo: 'XiaoPuOuO/openchatx-mcp', ref: 'main', path: 'skills/x' } };
+    o = await open({ routes: { ...list([SK]), ...fail(SK, 60, 'skill failed', skill) } });
+    expect('(o) a failed skill in the same repo does not mark the repository', !(await o.page.isVisible('.job.failed')), await notice(o.page));
+    await done('(o) skill', o);
+  }
+
   o = await open({ scheme: 'dark' });
   await done('(i) dark', o, 'read-dark');
 
