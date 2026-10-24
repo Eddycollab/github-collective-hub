@@ -1,65 +1,65 @@
-# RepoBox
+# GitHub Collective Hub
 
 **繁體中文** | [English](README.en.md)
 
-滑 Threads、X 看到不錯的 GitHub 專案，按一下分享就收進你自己的私人 repo。幾分鐘後，你自己的 Claude 訂閱會讀完那個專案，寫好白話介紹、使用門檻、技術摘要和一張架構圖。
+把靈感，收進未來。
 
-![閱讀頁：架構圖會一筆一筆畫出來，點圖放大後可以看元件之間怎麼連](docs/media/demo.gif)
+在 Threads、朋友訊息或語音裡看到不錯的 GitHub 專案或 AI Skill，貼上連結、分享文字或逐字稿，就收進你自己的**私人** GitHub repo。幾分鐘後，GitHub Actions 用你自己的 Claude 訂閱寫好繁體中文介紹、使用門檻、應用建議，以及架構圖或流程圖。
 
-- **收得快**：手機分享選單或電腦書籤列，一下就收進來，不用開別的 App。
-- **看得懂**：「這是什麼」用白話寫，附一個實際例子；「使用門檻」列出平台、要準備什麼、要不要錢。
-- **看得到架構**：每個專案都有一張架構圖，點節點就看它連到哪些元件。畫圖的是 [arch-blueprint](https://github.com/cholateio/arch-blueprint) skill，也能裝進你自己的 Claude Code、Codex 等工具，替任何專案畫圖。
-- **資料是你的**：結果是 Markdown 加 SVG，存在你自己的私人 repo，GitHub、Obsidian、VS Code 都能直接讀。
+本專案改編自 [cholateio/repobox](https://github.com/cholateio/repobox)（基底 commit `8132ed5bcd430f9f92634396a6a67c99a89a3fb6`），保留它的架構：收藏網頁 → 私人收藏庫 `inbox/` → GitHub Actions → Claude 分析 → 驗證後的 `library/` → 收藏網頁。
 
 <p>
-  <img src="docs/media/home.png" alt="收藏頁：貼連結的框、分類索引和一句話介紹的卡片" width="72%">
+  <img src="docs/media/home.png" alt="收藏頁：左側分類與用途標籤，右側收藏卡片（示範資料）" width="72%">
   <img src="docs/media/phone.png" alt="手機版收藏頁" width="24%">
 </p>
 
-分析結果是繁體中文。
+## 能做什麼
+
+- **兩種收藏**：GitHub 專案（`owner/repo`），以及 Skill（`owner/repo` 裡的某個 `SKILL.md`；同一個 repo 的多個 skill 可以分別收藏）。
+- **多種入口**：貼 GitHub 網址；貼 Threads 分享內文（一次擷取多個網址，先列候選再確認）；貼逐字稿或用麥克風口述；Android 分享選單；電腦書籤。
+- **用途標籤**：簡報類、程式類、語音類、AI 工具、設計資源、教育應用，可多選、可自訂；AI 建議標籤與你的手動標籤分開，按一下才採用。
+- **整理**：所有收藏、靈感收件匣、我的最愛、Skills 專區、封存；搜尋、多標籤篩選、卡片／列表、最近收藏／最近分析排序。
+- **你的筆記不會被覆寫**：筆記、手動標籤、最愛、狀態存在收藏庫的 `user.json`，分析流程只讀不寫。
+- **可恢復的錯誤**：token 失效、權限不足、API 限流、分析失敗、圖沒通過安全檢查，都有清楚的狀態與重試入口。
+
+<img src="docs/media/skill.png" alt="Skill 詳情頁：名稱、觸發情境、相容性與安裝說明（示範資料）" width="80%">
 
 ## 它怎麼運作
 
 ```
-手機分享 / 書籤 ──► 你的收藏網頁 ──► 私人 repo 的 inbox/
-                                         │
-                       GitHub Actions + 你的 Claude 訂閱
-                                         │
-                     library/ 寫進介紹、使用門檻、架構圖 ──► 收藏網頁的書庫
+貼上網址／分享文字／語音 ──► 收藏網頁 ──► 私人收藏庫 inbox/<id>.json
+                                              │ push
+                              GitHub Actions：plan → analyze（Claude，無 shell）→ publish（重新驗證）
+                                              │
+                    library/*.md|json|svg、index.json ──► 收藏網頁（用你的 token 讀取）
 ```
 
-沒有伺服器、沒有資料庫，也沒有共用網站。網頁是你 fork 出來的 GitHub Pages，分析跑在你自己的 GitHub Actions。
+沒有伺服器、沒有資料庫。網頁是 GitHub Pages，分析跑在你自己的 Actions。
 
 ## 安裝
 
-需要：GitHub 帳號、Claude 訂閱（目前只支援 Claude，ChatGPT 等其他訂閱還不能用），以及裝好 Claude Code 的電腦（產生 token 用）。全程在 GitHub 網頁上點，只有第 2 步要在終端機打一行指令。
+完整步驟（Windows 本機預覽、測試、GitHub Pages、私人收藏庫、Secrets 清單）見 **[docs/setup.md](docs/setup.md)**。摘要：
 
-### 1. 架收藏網頁
-
-1. Fork 本 repo，到 fork 的 **Actions** 分頁按啟用。
-2. **Settings → Pages → Source** 選 **GitHub Actions**，再到 **Actions → pages → Run workflow** 跑一次。
-
-網頁會在 `https://<帳號>.github.io/repobox/`。
-
-### 2. 建收藏 repo
-
-1. 打開 [repobox-library-template](https://github.com/cholateio/repobox-library-template)，按 **Use this template → Create a new repository**，名稱填 `repobox-library`，選 **Private**。
-2. 在裝了 [Claude Code](https://claude.com/claude-code) 的終端機執行 `claude setup-token`，登入後會印出一串 token。到 `repobox-library` 的 **Settings → Secrets and variables → Actions → New repository secret**，名稱填 `CLAUDE_CODE_OAUTH_TOKEN`，貼上 token。
-
-### 3. 每台手機/電腦裝置進入第一步的網頁設定一次
-
-1. GitHub 頭像 **Settings → Developer settings → Personal access token → Fine-grained tokens** 建一把 token：只選私人的 `repobox-library`，權限只開 **Contents: Read and write**。
-2. 打開收藏網頁的設定，填上 `<帳號>/repobox-library` 和這把 token。
-3. Android 把網頁加到主畫面，分享選單就有 RepoBox；電腦把網頁上的書籤按鈕拖到書籤列。
+1. 本機預覽：`node scripts/preview.mjs`，打開 <http://127.0.0.1:8080/>，按「以示範資料瀏覽」或連結本機模擬收藏庫。
+2. 把這個 repo 推到你自己的 GitHub，開啟 Pages。
+3. 用 `library-template/` 建一個**私人**收藏庫，把 caller workflow 的 `uses:` 釘到你 repo 的 40 字元 commit SHA。
+4. 收藏庫 Actions secret：`CLAUDE_CODE_OAUTH_TOKEN`（`claude setup-token` 產生）。
+5. 每台裝置在網頁設定貼一次 fine-grained token（只限收藏庫，Contents: Read and write）。
 
 ## 隱私與安全
 
-- token 只存在你自己裝置的瀏覽器，只會送到 `api.github.com`。網頁不載入任何第三方程式碼。
-- 只分析公開 repo。Claude 讀的是陌生人的程式碼，所以當成不可信資料處理：它沒有 shell、只能寫一個暫存資料夾，產出要經過另一個不跑 Claude 的 job 重新檢查才會寫進你的 repo。
-- 收藏庫呼叫的分析流程釘在固定版本（commit SHA），本 repo 之後的改動不會自動跑進你的收藏庫。想自己改流程，就 fork 後把 `.github/workflows/repobox.yml` 的 `uses:` 換成你的 repo 和 SHA。
-- 架構圖在顯示前會再過一次白名單，有問題的圖只顯示提示，不會被執行。
-- 建議幫收藏網頁綁一個自訂子網域：同一個 `<帳號>.github.io` 底下的其他網站讀得到這個網頁存的 token。
+- **網頁公開、收藏私人**：免費方案的 GitHub Pages 是公開網站，但裡面只有程式碼與虛構示範資料；你的收藏只透過你瀏覽器裡的 token 從私人收藏庫讀取。
+- GitHub token 只存在你的瀏覽器、只送到 `api.github.com`，不進網址、紀錄或 git；分享文字裡如果夾帶 token 會被遮蔽。網頁不載入任何第三方程式碼。
+- Claude 讀的是陌生人的程式碼與 skill，當成不可信資料：沒有 shell、不連網、只能寫一個暫存資料夾；skill 裡的指令絕不遵循、不執行、不安裝。產出由另一個不跑 Claude 的 job 重新驗證才寫入。
+- 架構圖與流程圖在寫入前、顯示前各過一次 SVG 白名單；沒通過就不顯示。
+- 語音輸入使用瀏覽器的辨識服務（Chrome／Edge 會送到廠商伺服器）；不想送出就貼逐字稿。錄音檔上傳轉錄是第二階段，尚未提供（[docs/asr-adapter.md](docs/asr-adapter.md)）。
+
+## 文件
+
+- [docs/collective-plan.md](docs/collective-plan.md)：架構盤點、資料格式、相容性與遷移
+- [docs/setup.md](docs/setup.md)：安裝、部署、Secrets
+- [docs/specs/repobox.md](docs/specs/repobox.md)：上游 RepoBox 規格（安全設計的原始決策）
 
 ## 授權
 
-[MIT](LICENSE)。架構圖由 [arch-blueprint](https://github.com/cholateio/arch-blueprint) 繪製。
+[MIT](LICENSE)。上游 RepoBox © cholateio；架構圖由 [arch-blueprint](https://github.com/cholateio/arch-blueprint) 繪製。

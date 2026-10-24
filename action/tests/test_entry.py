@@ -114,11 +114,12 @@ class EntryTest(unittest.TestCase):
         self.assertIsNone(entry.find_entry(self.lib, 99, "Owner/Repo"))
 
     def test_frontmatter_key_order_and_license_none(self):
-        self.assertEqual(list(self.fm), [
-            "repo", "repo_id", "url", "description", "language", "stars", "stars_at", "license", "category",
-            "tags", "stack", "tagline", "intro", "examples", "requirements", "summary", "highlights", "sightings",
-            "analyzed_at", "analysis",
-        ])
+        self.assertEqual(list(self.fm), list(entry.FM_KEYS))
+        self.assertEqual((self.fm["schema_version"], self.fm["id"], self.fm["key"], self.fm["item_type"]),
+                         (2, "owner__repo", "repository:owner/repo", "repository"))
+        self.assertEqual(self.fm["target"], {"repo": "Owner/Repo", "ref": None, "path": None})
+        self.assertEqual((self.fm["created_at"], self.fm["updated_at"]), ("2026-10-18T00:00:00+00:00",) * 2)
+        self.assertIsNone(self.fm["triggers"])
         self.assertEqual(self.fm["stars_at"], "2026-10-18")
         self.assertIsNone(self.fm["license"])
         self.assertEqual(self.fm["description"], "A tool")
@@ -200,8 +201,8 @@ class EntryTest(unittest.TestCase):
         rec = dict(self.fm, sightings=[{"id": "a", "at": "2026-10-17T22:03:40+08:00"},
                                        {"id": "b", "at": "2026-10-18T09:00:00+08:00"}])
         disp = entry.display_frontmatter(rec)
-        self.assertEqual(list(disp), ["repo", "repo_id", "url", "description", "language", "stars", "license",
-                                      "category", "tags", "stack", "收藏次數", "最後看到"])
+        self.assertEqual(list(disp), ["item_type", "repo", "repo_id", "url", "description", "language", "stars",
+                                      "license", "category", "tags", "stack", "收藏次數", "最後看到"])
         self.assertEqual(disp["stars"], "7（2026-10-18）")
         self.assertEqual(disp["收藏次數"], 2)
         self.assertEqual(disp["最後看到"], "2026-10-18")
@@ -310,6 +311,80 @@ class EntryTest(unittest.TestCase):
         text = entry.render_entry(self.fm, ANALYSIS, None, None)
         self.assertIn("> " + ANALYSIS["tagline"], text)
         self.assertLess(text.index("> " + ANALYSIS["tagline"]), text.index("## 這是什麼"))
+
+
+SKILL_IDENT = {"item_type": "skill", "path": "skills/pdf", "ref": "main",
+               "resolved": {"ref": "main", "commit_sha": "a" * 40, "default_branch": "main"},
+               "skill": {"name": "pdf", "description": "PDF 工具", "license": "Apache-2.0", "path": "skills/pdf",
+                         "url": "https://github.com/Owner/Repo/blob/" + "a" * 40 + "/skills/pdf/SKILL.md"}}
+
+
+class EntryV2Test(unittest.TestCase):
+    def setUp(self):
+        from helpers import SKILL_ANALYSIS
+        self.lib = Path(tempfile.mkdtemp())
+        self.sa = SKILL_ANALYSIS
+        self.fm = entry.build_frontmatter(META, SKILL_ANALYSIS, [], None, RUN, now="2026-10-24T00:00:00+00:00",
+                                          ident=SKILL_IDENT)
+
+    def test_skill_identity_fields(self):
+        import target
+        self.assertEqual(self.fm["key"], "skill:owner/repo:skills/pdf")
+        self.assertEqual(self.fm["id"], target.stem("skill", "Owner/Repo", "skills/pdf"))
+        self.assertEqual(self.fm["target"], {"repo": "Owner/Repo", "ref": "main", "path": "skills/pdf"})
+        self.assertEqual(self.fm["resolved"]["commit_sha"], "a" * 40)
+        self.assertEqual(self.fm["compatible_tools"], ["Claude Code"])
+        self.assertIsNone(self.fm["examples"])
+
+    def test_skill_render_and_find(self):
+        import target
+        p = self.lib / f"{target.stem('skill', 'Owner/Repo', 'skills/pdf')}.md"
+        entry.write_entry_files(p, self.fm, entry.render_entry(self.fm, self.sa, p.with_suffix(".svg").name, None))
+        text = p.read_text(encoding="utf-8")
+        for s in ("## Skill 資訊", "### 觸發情境", "### 權限需求", "## 適合的應用（推論）", "## 使用流程圖", "不會執行或安裝"):
+            self.assertIn(s, text)
+        head = text.split(entry.START, 1)[0]
+        self.assertIn("skill_path: skills/pdf", head)
+        self.assertEqual(entry.find_entry(self.lib, 42, "Owner/Repo", "skill", "skills/pdf"), p)
+        self.assertIsNone(entry.find_entry(self.lib, 42, "Owner/Repo", "skill", "skills/other"))
+        self.assertIsNone(entry.find_entry(self.lib, 42, "Owner/Repo"))
+
+    def test_unconfirmed_tools_are_labelled(self):
+        text = entry.render_entry(self.fm, dict(self.sa, compatible_tools=[]), None, None)
+        self.assertIn("未確認", text)
+
+    def test_dedup_keeps_ref_and_key(self):
+        fm = entry.build_frontmatter(dict(META, full_name="Owner/Renamed", html_url="https://github.com/Owner/Renamed"),
+                                     None, [], self.fm, None, ident={"item_type": "skill", "path": "skills/pdf"})
+        self.assertEqual(fm["key"], self.fm["key"])
+        self.assertEqual(fm["id"], self.fm["id"])
+        self.assertEqual(fm["target"]["ref"], "main")
+        self.assertEqual(fm["resolved"], self.fm["resolved"])
+        self.assertEqual(fm["created_at"], "2026-10-24T00:00:00+00:00")
+
+    def test_sighting_v2_fields_capped_and_redacted(self):
+        cap = {"captured_at": "2026-10-24T00:00:00+08:00", "source": "threads", "note": "n",
+               "post_url": "https://www.threads.com/@a/post/1", "source_url": "javascript:alert(1)",
+               "share_text": "第一行\n第二行 ghp_" + "A" * 36 + " " + "字" * 5000,
+               "transcript": "github_pat_" + "B" * 40, "tags": ["程式類", "程式類", "<b>x</b>", 5, "長" * 40]}
+        s = entry.write_sighting("i1", cap)
+        self.assertEqual(s["post_url"], "https://www.threads.com/@a/post/1")
+        self.assertEqual(s["source_url"], "")
+        self.assertTrue(s["share_text"].startswith("第一行\n第二行 " + entry.REDACTED))
+        self.assertEqual(len(s["share_text"]), entry.SHARE_MAX)
+        self.assertNotIn("ghp_", s["share_text"])
+        self.assertEqual(s["transcript"], entry.REDACTED)
+        self.assertEqual(s["tags"], ["程式類", "x", "長" * 20])
+        self.assertEqual(entry.capture_tags([s, {"tags": ["教育應用", "程式類"]}]), ["程式類", "x", "長" * 20, "教育應用"])
+
+    def test_legacy_record_is_upgraded_on_read(self):
+        p = self.lib / "owner__repo.md"
+        p.write_text("---\nrepo: Owner/Repo\nrepo_id: 42\nsightings:\n- id: a\n  at: '2026-10-17T00:00:00+08:00'\n---\n"
+                     + entry.START + "\nx\n" + entry.END + "\n", encoding="utf-8")
+        rec = entry.read_record(p)
+        self.assertEqual((rec["schema_version"], rec["id"], rec["key"], rec["item_type"]),
+                         (2, "owner__repo", "repository:owner/repo", "repository"))
+        self.assertEqual(rec["created_at"], "2026-10-17T00:00:00+08:00")
 
 
 if __name__ == "__main__":

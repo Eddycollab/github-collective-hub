@@ -1,65 +1,65 @@
-# RepoBox
+# GitHub Collective Hub
 
 [繁體中文](README.md) | **English**
 
-You spot a good GitHub project while scrolling Threads or X, tap Share, and it lands in your own private repo. A few minutes later your own Claude subscription has read the project and written a plain-language overview, what it takes to use it, a technical summary and an architecture diagram.
+Collect today's ideas for tomorrow.
 
-![Reading page: the architecture diagram draws itself stroke by stroke; click it to enlarge and see how the components connect](docs/media/demo.gif)
+When you spot a good GitHub project or AI Skill on Threads, in a friend's message or in a voice note, paste the link, the shared text or a transcript, and it lands in your own **private** GitHub repo. A few minutes later GitHub Actions uses your own Claude subscription to write a Traditional Chinese introduction, requirements, application ideas, and an architecture or usage-flow diagram.
 
-- **Fast to save**: one tap from your phone's share menu or your computer's bookmarks bar, without opening another app.
-- **Easy to follow**: "What it is" is written in plain language with one real example; "What it takes" lists the platforms, what you need to prepare and whether it costs money.
-- **Architecture you can see**: every project gets an architecture diagram; click a node to see which components it connects to. The diagrams come from the [arch-blueprint](https://github.com/cholateio/arch-blueprint) skill, which you can also install in your own Claude Code, Codex or similar tools to draw any project.
-- **Your data stays yours**: results are Markdown plus SVG, stored in your own private repo, and GitHub, Obsidian and VS Code can all read them directly.
+Adapted from [cholateio/repobox](https://github.com/cholateio/repobox) (base commit `8132ed5bcd430f9f92634396a6a67c99a89a3fb6`), keeping its architecture: capture page → private library `inbox/` → GitHub Actions → Claude analysis → validated `library/` → capture page.
 
 <p>
-  <img src="docs/media/home.png" alt="Collection page: a box for pasting links, a category index and cards with one-line descriptions" width="72%">
+  <img src="docs/media/home.png" alt="Collection page: views and usage tags on the left, cards on the right (demo data)" width="72%">
   <img src="docs/media/phone.png" alt="Collection page on a phone" width="24%">
 </p>
 
-The analysis is written in Traditional Chinese.
+## What it does
+
+- **Two kinds of items**: GitHub repositories (`owner/repo`) and Skills (one `SKILL.md` inside `owner/repo`; several skills in one repo are collected separately).
+- **Many ways in**: paste a GitHub URL; paste Threads share text (every URL is extracted and listed for confirmation); paste a transcript or dictate; Android share sheet; desktop bookmarklet.
+- **Usage tags**: 簡報類, 程式類, 語音類, AI 工具, 設計資源, 教育應用 — multi-select and extendable; AI-suggested tags stay separate from your own until you adopt them.
+- **Organize**: all items, inbox, favorites, Skills, archive; search, multi-tag filters, cards/list, sort by captured or analyzed.
+- **Your notes are never overwritten**: notes, manual tags, favorites and status live in the library's `user.json`, which the pipeline only reads.
+- **Recoverable errors**: expired token, missing permission, API rate limit, failed analysis and rejected diagrams each have a clear state and a retry.
+
+<img src="docs/media/skill.png" alt="Skill detail: name, triggers, compatibility and install notes (demo data)" width="80%">
 
 ## How it works
 
 ```
-share menu / bookmark ──► your collection page ──► private repo inbox/
-                                                       │
-                                   GitHub Actions + your Claude subscription
-                                                       │
-                       library/: overview, requirements, diagram ──► library on your page
+URL / share text / voice ──► capture page ──► private library inbox/<id>.json
+                                                  │ push
+                        GitHub Actions: plan → analyze (Claude, no shell) → publish (re-validates)
+                                                  │
+                  library/*.md|json|svg, index.json ──► capture page (read with your token)
 ```
 
-There is no server, no database and no shared website. The web page is GitHub Pages on your own fork, and the analysis runs in your own GitHub Actions.
+No server, no database. The page is GitHub Pages; analysis runs in your own Actions.
 
-## Install
+## Setup
 
-You need a GitHub account, a Claude subscription (only Claude is supported for now; ChatGPT and other subscriptions do not work yet), and a computer with Claude Code installed (to generate a token). Everything is done by clicking through the GitHub website; only step 2 needs one command in a terminal.
+Full steps (Windows local preview, tests, GitHub Pages, private library, secrets list) are in **[docs/setup.md](docs/setup.md)** (Chinese). In short:
 
-### 1. Set up the collection page
+1. Local preview: `node scripts/preview.mjs`, open <http://127.0.0.1:8080/>, then browse the demo data or connect the local mock library.
+2. Push this repo to your own GitHub and enable Pages.
+3. Create a **private** library from `library-template/` and pin the caller workflow's `uses:` to a 40-character commit SHA of your repo.
+4. Library Actions secret: `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`).
+5. On each device, paste a fine-grained token once (library repo only, Contents: Read and write).
 
-1. Fork this repo, then open the fork's **Actions** tab and enable it.
-2. Under **Settings → Pages → Source** choose **GitHub Actions**, then run it once from **Actions → pages → Run workflow**.
+## Privacy and security
 
-The page will be at `https://<username>.github.io/repobox/`.
+- **Public page, private collection**: GitHub Pages on the free plan is a public site, but it only holds code and fictional demo data; your items are read from the private library with the token in your browser.
+- The GitHub token stays in your browser and is only sent to `api.github.com` — never in URLs, logs or git; tokens pasted into shared text are masked. The page loads no third-party code.
+- Claude treats other people's code and skills as untrusted data: no shell, no network, one scratch folder; instructions inside a skill are never followed, run or installed. A separate job that never runs Claude re-validates the output before writing it.
+- Diagrams pass an SVG allowlist before they are written and again before they are shown; anything that fails is not displayed.
+- Dictation uses the browser's recognizer (Chrome/Edge send audio to the vendor); paste a transcript instead if you prefer. Audio file upload transcription is phase 2 and not available yet ([docs/asr-adapter.md](docs/asr-adapter.md)).
 
-### 2. Create the library repo
+## Docs
 
-1. Open [repobox-library-template](https://github.com/cholateio/repobox-library-template), click **Use this template → Create a new repository**, name it `repobox-library` and choose **Private**.
-2. In a terminal with [Claude Code](https://claude.com/claude-code) installed, run `claude setup-token`; after you sign in it prints a token. In `repobox-library`, go to **Settings → Secrets and variables → Actions → New repository secret**, name it `CLAUDE_CODE_OAUTH_TOKEN` and paste the token.
-
-### 3. Set up each phone or computer once, on the page from step 1
-
-1. From your GitHub avatar, go to **Settings → Developer settings → Personal access token → Fine-grained tokens** and create a token: select only your private `repobox-library` and grant only **Contents: Read and write**.
-2. Open the collection page's settings and enter `<username>/repobox-library` and this token.
-3. On Android, add the page to your home screen and RepoBox appears in the share menu; on a computer, drag the bookmark button on the page to your bookmarks bar.
-
-## Privacy & security
-
-- The token is stored only in the browser on your own device and is sent only to `api.github.com`. The page loads no third-party code.
-- Only public repos are analyzed. Claude is reading strangers' code, so that code is treated as untrusted data: Claude has no shell, can write to only one temporary folder, and its output is checked again by a separate job that does not run Claude before anything is written to your repo.
-- The analysis workflow your library calls is pinned to a fixed version (a commit SHA), so later changes to this repo do not automatically reach your library. To change the workflow yourself, fork it and point `uses:` in `.github/workflows/repobox.yml` at your repo and SHA.
-- Architecture diagrams pass an allowlist check once more before they are shown; a diagram that fails shows only a notice and is never executed.
-- Consider giving the collection page a custom subdomain: other sites under the same `<username>.github.io` can read the token this page stores.
+- [docs/collective-plan.md](docs/collective-plan.md): inventory, data formats, compatibility and migration
+- [docs/setup.md](docs/setup.md): install, deploy, secrets
+- [docs/specs/repobox.md](docs/specs/repobox.md): upstream RepoBox spec (original security decisions)
 
 ## License
 
-[MIT](LICENSE). Architecture diagrams are drawn by [arch-blueprint](https://github.com/cholateio/arch-blueprint).
+[MIT](LICENSE). Upstream RepoBox © cholateio; diagrams drawn by [arch-blueprint](https://github.com/cholateio/arch-blueprint).

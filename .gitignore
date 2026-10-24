@@ -59,3 +59,6 @@ Thumbs.db
 .idea/
 *.swp
 # <<< kit v5 <<<
+
+# Local preview data (scripts/preview.mjs)
+.preview/

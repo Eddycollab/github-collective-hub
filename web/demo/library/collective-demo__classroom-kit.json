@@ -1,0 +1,75 @@
+{
+  "schema_version": 2,
+  "description": "",
+  "language": null,
+  "stars": null,
+  "stars_at": null,
+  "url": "",
+  "category": "other",
+  "tags": [],
+  "stack": [
+    "HTML"
+  ],
+  "examples": [
+    "示範：上課時開啟計時器與抽籤。"
+  ],
+  "highlights": [
+    "示範：借鏡一。",
+    "示範：借鏡二。"
+  ],
+  "suggested_tags": [
+    "教育應用"
+  ],
+  "fit": [
+    "（推論示範）SEL 課堂活動。"
+  ],
+  "capture_tags": [
+    "教育應用"
+  ],
+  "item_type": "repository",
+  "repo": "collective-demo/classroom-kit",
+  "tagline": "課堂互動小工具合集",
+  "intro": "（示範資料）虛構的教育專案，用來展示封存後的樣子。",
+  "problem": "示範：課堂互動工具分散。",
+  "requirements": [
+    "不需安裝"
+  ],
+  "summary": "（示範資料）示範摘要。",
+  "id": "collective-demo__classroom-kit",
+  "key": "repository:collective-demo/classroom-kit",
+  "repo_id": 0,
+  "target": {
+    "repo": "collective-demo/classroom-kit",
+    "ref": null,
+    "path": null
+  },
+  "resolved": null,
+  "skill": null,
+  "sightings": [
+    {
+      "id": "demo-collective-demo__classroom-kit",
+      "at": "2026-10-10T10:00:00+08:00",
+      "source": "other",
+      "note": "",
+      "post_url": "",
+      "share_text": "",
+      "transcript": "",
+      "source_url": "",
+      "tags": [
+        "教育應用"
+      ]
+    }
+  ],
+  "created_at": "2026-10-10T10:00:00+08:00",
+  "updated_at": "2026-10-10T10:00:00+08:00",
+  "analyzed_at": "2026-10-10T10:00:00+08:00",
+  "analysis": {
+    "version": "demo",
+    "status": "succeeded",
+    "model": null,
+    "turns": null,
+    "wall_s": 0,
+    "rounds": 0,
+    "diagram": false
+  }
+}

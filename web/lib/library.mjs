@@ -1,12 +1,15 @@
-// Library data for the capture and reading pages: index loading, entry reads and the merged list.
-// Coupled with action/scripts/index.py (index.json shape) and publish.py (library/<stem>.md|json|svg).
+// Library data for the capture and reading pages: GitHub API access, index loading, entry reads,
+// user.json edits, inbox state, capture writes and removal.
+// Coupled with action/scripts/index.py (index.json shape), publish.py (library/<stem>.md|json|svg,
+// inbox/done|failed) and docs/collective-plan.md §3.
 
 export const STEM_RE = /^[a-z0-9._-]+__[a-z0-9._-]+$/;
-const API = 'https://api.github.com/repos';
+const GITHUB_API = 'https://api.github.com';
+const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 export const CATEGORY_LABEL = { 'agent-framework': 'Agent 框架', 'mcp-server': 'MCP 伺服器', 'dev-tool': '開發工具',
   'model-inference': '模型推論', 'data-processing': '資料處理', frontend: '前端', infrastructure: '基礎設施', game: '遊戲',
-  'desktop-app': '桌面應用', other: '其他' };
+  'desktop-app': '桌面應用', 'agent-skill': 'Agent Skill', other: '其他' };
 
 // Category names come from a user-edited taxonomy and from index.json, so never read inherited members.
 export function categoryLabel(key) {
@@ -14,12 +17,32 @@ export function categoryLabel(key) {
 }
 
 export const STATE_TEXT = {
-  empty: '書庫還是空的。分享一個 GitHub repo 給 RepoBox，分析完會出現在這裡。',
+  empty: '收藏庫還是空的。貼上一個 GitHub 網址或分享文字，分析完會出現在這裡。',
   'no-repo': '找不到收藏庫，或 token 沒有它的權限。請到設定確認收藏庫名稱與 token。',
-  auth: 'token 失效，請到設定重新貼上。',
+  auth: 'token 失效或權限不足，請到設定重新貼上。',
+  'rate-limit': 'GitHub API 用量已達上限，請稍後再試。',
   unavailable: '暫時連不到 GitHub，稍後再試。',
-  'bad-data': '書庫目錄格式錯誤，下一次分析完成時會自動重建。',
+  'bad-data': '收藏目錄格式錯誤，下一次分析完成時會自動重建。',
+  demo: '示範模式不會寫入任何資料。要真正收藏，請到設定連結你的私人收藏庫。',
 };
+
+// The transport every call goes through by default; demo mode swaps it for read-only fixtures.
+let transport = (...a) => fetch(...a);
+export function useTransport(fn) { transport = fn || ((...a) => fetch(...a)); }
+const send = (...a) => transport(...a);
+
+// A local mock API is only honoured on a loopback page pointing at a loopback port, so a token
+// can never be sent anywhere but api.github.com from a deployed page.
+export function apiBase(cfg, loc = globalThis.location) {
+  if (cfg && typeof cfg.api === 'string' && cfg.api && loc && LOOPBACK.has(loc.hostname)) {
+    try {
+      const u = new URL(cfg.api);
+      if (u.protocol === 'http:' && LOOPBACK.has(u.hostname)) return u.origin;
+    } catch { /* fall through */ }
+  }
+  return GITHUB_API;
+}
+const repoApi = (cfg, repo = cfg.repo) => `${apiBase(cfg)}/repos/${repo}`;
 
 export function parseStem(hash) {
   let s = String(hash || '').replace(/^#/, '');
@@ -36,29 +59,39 @@ function headers(cfg, accept) {
   return { Authorization: `Bearer ${cfg.token}`, Accept: accept, 'X-GitHub-Api-Version': '2022-11-28' };
 }
 
+// GitHub answers an exhausted rate limit with 403 (or 429) and x-ratelimit-remaining: 0.
+function rateOf(res) {
+  const h = res && res.headers;
+  if (!h || typeof h.get !== 'function') return null;
+  const remaining = h.get('x-ratelimit-remaining'), reset = Number(h.get('x-ratelimit-reset'));
+  return remaining === null ? null : { remaining: Number(remaining), reset: Number.isFinite(reset) ? reset * 1000 : 0 };
+}
+const limited = (status, rate) => (status === 429 || (status === 403 && rate && rate.remaining === 0));
+
 // no-cache: the API answers with max-age=60, which would keep showing an entry just removed or published.
-export async function ghRaw(cfg, path, fetchImpl = fetch) {
+export async function ghRaw(cfg, path, fetchImpl = send) {
   try {
-    const res = await fetchImpl(`${API}/${cfg.repo}/contents/${path}`, { headers: headers(cfg, 'application/vnd.github.raw+json'), cache: 'no-cache' });
-    return { status: res.status, text: res.ok ? await res.text() : null };
+    const res = await fetchImpl(`${repoApi(cfg)}/contents/${path}`, { headers: headers(cfg, 'application/vnd.github.raw+json'), cache: 'no-cache' });
+    const rate = rateOf(res);
+    return { status: res.status, text: res.ok ? await res.text() : null, rate, limited: limited(res.status, rate) };
   } catch {
     return { status: 0, text: null };
   }
 }
 
-export async function ghRepo(cfg, fetchImpl = fetch) {
+export async function ghRepo(cfg, fetchImpl = send) {
   try {
-    return (await fetchImpl(`${API}/${cfg.repo}`, { headers: headers(cfg, 'application/vnd.github+json') })).status;
+    return (await fetchImpl(repoApi(cfg), { headers: headers(cfg, 'application/vnd.github+json') })).status;
   } catch {
     return 0;
   }
 }
 
-const failState = (status) => (status === 401 || status === 403 ? 'auth' : 'unavailable');
+const failState = (status, isLimited) => (isLimited ? 'rate-limit' : status === 401 || status === 403 ? 'auth' : 'unavailable');
 
 // A private repo answers 404 both when index.json is missing and when the token cannot see the
 // repo, so a 404 is resolved by asking for the repo itself.
-export async function loadIndex(cfg, fetchImpl = fetch) {
+export async function loadIndex(cfg, fetchImpl = send) {
   const r = await ghRaw(cfg, 'index.json', fetchImpl);
   if (r.status === 200) {
     try {
@@ -74,21 +107,179 @@ export async function loadIndex(cfg, fetchImpl = fetch) {
     if (repo === 404) return { state: 'no-repo', index: null };
     return { state: failState(repo), index: null };
   }
-  return { state: failState(r.status), index: null };
+  return { state: failState(r.status, r.limited), index: null, reset: r.rate && r.rate.reset };
 }
 
-async function ghJson(cfg, method, path, body, fetchImpl) {
-  const res = await fetchImpl(`${API}/${cfg.repo}${path}`, {
+async function ghJson(cfg, method, path, body, fetchImpl, repo = cfg.repo) {
+  const res = await fetchImpl(`${repoApi(cfg, repo)}${path}`, {
     method, cache: 'no-cache', headers: { ...headers(cfg, 'application/vnd.github+json'), ...(body ? { 'Content-Type': 'application/json' } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
-  return { status: res.status, data: res.ok ? await res.json() : null };
+  const rate = rateOf(res);
+  return { status: res.status, data: res.ok ? await res.json() : null, limited: limited(res.status, rate), rate };
 }
 
-class RemoveError extends Error {
-  constructor(status) { super(`GitHub ${status}`); this.status = status; }
+export class GitHubError extends Error {
+  constructor(status, isLimited = false, reset = 0) {
+    super(`GitHub ${status}`); this.status = status; this.limited = isLimited; this.reset = reset;
+  }
 }
-const must = (r) => { if (!r.data) throw new RemoveError(r.status); return r.data; };
+const must = (r) => { if (!r.data) throw new GitHubError(r.status, r.limited, r.rate && r.rate.reset); return r.data; };
+
+// One sentence a person can act on, for any GitHubError (or network failure).
+export function errorText(e, action = '操作') {
+  if (!e || !e.status) return `${action}失敗：${STATE_TEXT.unavailable}`;
+  if (e.limited) return `${action}失敗：${STATE_TEXT['rate-limit']}${e.reset ? `（約 ${new Date(e.reset).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })} 重設）` : ''}`;
+  if (e.status === 'demo') return STATE_TEXT.demo;
+  if (e.status === 401) return `${action}失敗：${STATE_TEXT.auth}`;
+  if (e.status === 403) return `${action}失敗：token 沒有這個收藏庫的寫入權限（需要 Contents: Read and write）。`;
+  if (e.status === 404) return `${action}失敗：找不到收藏庫，或 token 沒有它的權限。`;
+  if (e.status === 409 || e.status === 422) return `${action}失敗：資料剛被其他裝置或分析流程更新，請重試。`;
+  return `${action}失敗（GitHub 回應 ${e.status}），稍後再試。`;
+}
+
+export function b64utf8(s) {
+  let bin = '';
+  for (const b of new TextEncoder().encode(s)) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+
+function utf8b64(b64) {
+  const bin = atob(String(b64).replace(/\s/g, ''));
+  return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+}
+
+// --- user.json: the only file the page owns. Written with its sha; on a conflict the latest copy
+// is re-read and the same patch applied again, so two devices never drop each other's edits.
+
+export async function loadUser(cfg, fetchImpl = send) {
+  const r = await ghJson(cfg, 'GET', '/contents/user.json', null, fetchImpl);
+  if (r.status === 404) return { state: 'ok', doc: { schema_version: 1, items: {} }, sha: null };
+  if (!r.data) return { state: failState(r.status, r.limited), doc: null, sha: null };
+  try {
+    const doc = JSON.parse(utf8b64(r.data.content));
+    if (!doc || typeof doc !== 'object' || !doc.items || typeof doc.items !== 'object') return { state: 'bad-data', doc: null, sha: r.data.sha };
+    return { state: 'ok', doc, sha: r.data.sha };
+  } catch {
+    return { state: 'bad-data', doc: null, sha: r.data.sha };
+  }
+}
+
+// edit(doc) -> new doc. Returns the saved doc.
+export async function saveUser(cfg, edit, message = 'collective: update notes', fetchImpl = send) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const cur = await loadUser(cfg, fetchImpl);
+    if (cur.state === 'bad-data') throw new GitHubError(422);
+    if (!cur.doc) throw new GitHubError(cur.state === 'auth' ? 401 : 0);
+    const next = edit(cur.doc);
+    const body = { message, content: b64utf8(JSON.stringify(next, null, 2) + '\n'), ...(cur.sha ? { sha: cur.sha } : {}) };
+    const r = await ghJson(cfg, 'PUT', '/contents/user.json', body, fetchImpl);
+    if (r.data) return next;
+    if (r.status !== 409 && r.status !== 422) throw new GitHubError(r.status, r.limited);
+  }
+  throw new GitHubError(409);
+}
+
+// --- inbox: queued captures are inbox/*.json, failed ones inbox/failed/*.json ({error, failed_at, capture, raw}).
+
+const ID_RE = /^[0-9]{8}-[0-9]{6}-[0-9a-f]{4,8}$/;
+const INBOX_READ_MAX = 40;
+
+async function listDir(cfg, path, fetchImpl) {
+  const r = await ghJson(cfg, 'GET', `/contents/${path}`, null, fetchImpl);
+  if (r.status === 404) return [];
+  if (!Array.isArray(r.data)) throw new GitHubError(r.status, r.limited);
+  return r.data.filter((f) => f && f.type === 'file' && /\.json$/.test(f.name) && ID_RE.test(f.name.slice(0, -5)));
+}
+
+const newestFirst = (files) => [...files].sort((a, b) => (a.name < b.name ? 1 : -1)).slice(0, INBOX_READ_MAX);
+
+export async function loadInbox(cfg, fetchImpl = send) {
+  const [queuedFiles, failedFiles] = await Promise.all([listDir(cfg, 'inbox', fetchImpl), listDir(cfg, 'inbox/failed', fetchImpl)]);
+  const read = async (f) => {
+    const r = await ghRaw(cfg, f.path, fetchImpl);
+    try { return { id: f.name.slice(0, -5), sha: f.sha, path: f.path, data: JSON.parse(r.text) }; } catch { return null; }
+  };
+  const queued = (await Promise.all(newestFirst(queuedFiles).map(read))).filter(Boolean)
+    .map((f) => ({ id: f.id, sha: f.sha, path: f.path, capture: f.data, at: f.data && f.data.captured_at }));
+  const failed = (await Promise.all(newestFirst(failedFiles).map(read))).filter((f) => f && f.data && f.data.capture)
+    .map((f) => ({ id: f.id, sha: f.sha, path: f.path, capture: f.data.capture, error: String(f.data.error || ''), at: f.data.failed_at }));
+  return { queued, failed };
+}
+
+const pad = (n, w = 2) => String(n).padStart(w, '0');
+
+export function makeId(d, rnd = crypto.getRandomValues(new Uint32Array(1))[0]) {
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-` +
+    `${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}-${rnd.toString(16).padStart(8, '0')}`;
+}
+
+export function isoLocal(d) {
+  const off = -d.getTimezoneOffset();
+  const sign = off >= 0 ? '+' : '-';
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T` +
+    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}` +
+    `${sign}${pad(Math.floor(Math.abs(off) / 60))}:${pad(Math.abs(off) % 60)}`;
+}
+
+// Each capture is its own new file, so two devices never overwrite each other; a 422 means the id
+// already exists and a fresh one is tried.
+export async function writeCapture(cfg, capture, label, fetchImpl = send, now = () => new Date()) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const id = makeId(now());
+    const r = await ghJson(cfg, 'PUT', `/contents/inbox/${id}.json`, {
+      message: `capture: ${label}`, content: b64utf8(JSON.stringify(capture, null, 2) + '\n'),
+    }, fetchImpl);
+    if (r.data) return id;
+    if (r.status !== 422) throw new GitHubError(r.status, r.limited, r.rate && r.rate.reset);
+  }
+  throw new GitHubError(422);
+}
+
+// Retry = write the capture back under a fresh id, then drop the failed record.
+export async function requeueFailed(cfg, failed, fetchImpl = send) {
+  const id = await writeCapture(cfg, failed.capture, `retry ${failed.id}`, fetchImpl);
+  await deleteFile(cfg, failed.path, failed.sha, `retry: ${failed.id}`, fetchImpl).catch(() => {});
+  return id;
+}
+
+export async function deleteFile(cfg, path, sha, message, fetchImpl = send) {
+  if (!/^inbox\/(failed\/)?[0-9]{8}-[0-9]{6}-[0-9a-f]{4,8}\.json$/.test(path)) throw new GitHubError(400);
+  must(await ghJson(cfg, 'DELETE', `/contents/${path}`, { message, sha }, fetchImpl));
+}
+
+// --- public repositories being collected (not the library): refs and SKILL.md discovery.
+
+export async function listMatchingRefs(cfg, repo, prefix, fetchImpl = send) {
+  const enc = String(prefix).split('/').map(encodeURIComponent).join('/');
+  const names = [];
+  for (const kind of ['heads', 'tags']) {
+    const r = await ghJson(cfg, 'GET', `/git/matching-refs/${kind}/${enc}`, null, fetchImpl, repo);
+    if (!Array.isArray(r.data)) throw new GitHubError(r.status, r.limited);
+    for (const x of r.data) if (x && typeof x.ref === 'string') names.push(x.ref.replace(/^refs\/(heads|tags)\//, ''));
+  }
+  return names;
+}
+
+export async function findSkills(cfg, repo, ref, fetchImpl = send) {
+  const meta = must(await ghJson(cfg, 'GET', '', null, fetchImpl, repo));
+  if (meta.private) throw new GitHubError(403);
+  const use = ref || meta.default_branch;
+  const enc = String(use).split('/').map(encodeURIComponent).join('/');
+  const tree = must(await ghJson(cfg, 'GET', `/git/trees/${enc}?recursive=1`, null, fetchImpl, repo));
+  return { ref: use, defaultBranch: meta.default_branch, entries: Array.isArray(tree.tree) ? tree.tree : [], truncated: Boolean(tree.truncated) };
+}
+
+// Whether the token may read Actions runs; null when it cannot (fine-grained tokens often can't).
+export async function actionsRunning(cfg, fetchImpl = send) {
+  try {
+    const r = await ghJson(cfg, 'GET', '/actions/runs?status=in_progress&per_page=5', null, fetchImpl);
+    if (!r.data) return null;
+    return Array.isArray(r.data.workflow_runs) && r.data.workflow_runs.length > 0;
+  } catch { return null; }
+}
+
+// --- removal
 
 export function withoutEntry(indexText, stem) {
   const data = JSON.parse(indexText);
@@ -96,25 +287,27 @@ export function withoutEntry(indexText, stem) {
   return JSON.stringify({ ...data, generated_at: new Date().toISOString().replace(/\.\d+Z$/, '+00:00'), count: entries.length, entries }, null, 2) + '\n';
 }
 
-// Coupled with index.py render_readme: entry lines are `- [owner/repo](library/<stem>.md) ...` and the
-// header reads `N 個 repo`. The next publish rebuilds README.md whole; this only keeps it from linking a deleted file.
+// Coupled with index.py render_readme: entry lines are `- [label](library/<stem>.md) ...` and the
+// header starts with `N 筆收藏` (upstream: `N 個 repo`). The next publish rebuilds README.md whole;
+// this only keeps it from linking a deleted file.
 export function readmeWithout(readme, stem, count) {
   const lines = readme.split('\n');
   const kept = lines.filter((l) => !l.startsWith('- [') || !l.includes(`](library/${stem}.md)`));
   if (kept.length === lines.length) return readme;
-  return count === null ? kept.join('\n') : kept.join('\n').replace(/^\d+ 個 repo/m, `${count} 個 repo`);
+  return count === null ? kept.join('\n') : kept.join('\n').replace(/^\d+ (個 repo|筆收藏)/m, `${count} $1`);
 }
 
-// Removes one entry in a single commit: library/<stem>.{md,json,svg}, its index.json row and its README line.
-// Retries when the branch moved under it (a publish landed in between). Returns 'ok', or 'gone' when nothing
-// referenced the stem any more; throws RemoveError and commits nothing when a read fails, so a retry can finish it.
-export async function removeEntry(cfg, stem, repoName, fetchImpl = fetch) {
-  if (!STEM_RE.test(stem)) throw new RemoveError(400);
+// Removes one entry in a single commit: library/<stem>.{md,json,svg}, its index.json row, its README
+// line and (opts.key) its user.json notes. Retries when the branch moved under it (a publish landed in
+// between). Returns 'ok', or 'gone' when nothing referenced the stem any more; throws GitHubError and
+// commits nothing when a read fails, so a retry can finish it.
+export async function removeEntry(cfg, stem, repoName, fetchImpl = send, opts = {}) {
+  if (!STEM_RE.test(stem)) throw new GitHubError(400);
   const branch = must(await ghJson(cfg, 'GET', '', null, fetchImpl)).default_branch;
   const ref = String(branch).split('/').map(encodeURIComponent).join('/');
   const read = async (path, head) => {
     const r = await ghRaw(cfg, `${path}?ref=${head}`, fetchImpl);
-    if (r.status !== 200 && r.status !== 404) throw new RemoveError(r.status);
+    if (r.status !== 200 && r.status !== 404) throw new GitHubError(r.status, r.limited);
     return r.text;
   };
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -140,18 +333,33 @@ export async function removeEntry(cfg, stem, repoName, fetchImpl = fetch) {
       const content = readmeWithout(readmeText, stem, count);
       if (content !== readmeText) tree.push({ path: 'README.md', mode: '100644', type: 'blob', content });
     }
+    if (opts.key) {
+      const userText = await read('user.json', head);
+      if (userText !== null) {
+        try {
+          const doc = JSON.parse(userText);
+          if (doc && doc.items && Object.hasOwn(doc.items, opts.key)) {
+            const items = { ...doc.items }; delete items[opts.key];
+            tree.push({ path: 'user.json', mode: '100644', type: 'blob', content: JSON.stringify({ ...doc, items, updated_at: new Date().toISOString() }, null, 2) + '\n' });
+          }
+        } catch { /* leave a malformed user.json alone */ }
+      }
+    }
     if (!tree.length) return 'gone';
     const newTree = must(await ghJson(cfg, 'POST', '/git/trees', { base_tree: treeSha, tree }, fetchImpl)).sha;
     const commit = must(await ghJson(cfg, 'POST', '/git/commits', { message: `remove: ${repoName || stem}`, tree: newTree, parents: [head] }, fetchImpl)).sha;
     const moved = await ghJson(cfg, 'PATCH', `/git/refs/heads/${ref}`, { sha: commit, force: false }, fetchImpl);
     if (moved.status === 200) return 'ok';
-    if (moved.status !== 422) throw new RemoveError(moved.status);
+    if (moved.status !== 422) throw new GitHubError(moved.status);
   }
-  throw new RemoveError(409);
+  throw new GitHubError(409);
 }
+// Upstream name kept for callers that still catch it.
+export { GitHubError as RemoveError };
 
 const time = (iso) => { const t = Date.parse(iso); return Number.isNaN(t) ? 0 : t; };
 
+// Upstream list model (index entries + this device's pending/failed history), kept for read.js and tests.
 export function mergeLibrary(index, history, lib) {
   const str = (v) => (typeof v === 'string' ? v : '');
   const entries = (index && Array.isArray(index.entries) ? index.entries : [])

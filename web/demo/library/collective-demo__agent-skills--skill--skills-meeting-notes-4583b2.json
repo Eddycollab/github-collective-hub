@@ -1,0 +1,95 @@
+{
+  "schema_version": 2,
+  "description": "",
+  "language": null,
+  "stars": null,
+  "stars_at": null,
+  "url": "",
+  "category": "agent-skill",
+  "tags": [],
+  "stack": [],
+  "examples": [],
+  "highlights": [
+    "示範：第二個 skill 的重點。"
+  ],
+  "suggested_tags": [
+    "語音類"
+  ],
+  "fit": [
+    "（推論示範）客語語音課程的錄音整理。"
+  ],
+  "capture_tags": [
+    "語音類"
+  ],
+  "item_type": "skill",
+  "repo": "collective-demo/agent-skills",
+  "skill": {
+    "name": "meeting-notes",
+    "description": "示範：把逐字稿整理成會議紀錄",
+    "license": null,
+    "path": "skills/meeting-notes",
+    "url": ""
+  },
+  "tagline": "逐字稿整理成會議紀錄",
+  "intro": "（示範資料）同一個 repo 裡的第二個 skill，展示一個 repo 內多個 SKILL.md 可以分別收藏。",
+  "problem": "示範：會議逐字稿太長不好讀。",
+  "requirements": [
+    "需要準備：示範資料"
+  ],
+  "triggers": [
+    "示範：貼上會議逐字稿要求整理"
+  ],
+  "inputs": [
+    "示範：逐字稿"
+  ],
+  "outputs": [
+    "示範：會議紀錄"
+  ],
+  "compatible_tools": [
+    "Claude Code"
+  ],
+  "dependencies": [],
+  "permissions": [],
+  "install": [],
+  "summary": "（示範資料）示範用 skill 摘要。",
+  "id": "collective-demo__agent-skills--skill--skills-meeting-notes-4583b2",
+  "key": "skill:collective-demo/agent-skills:skills/meeting-notes",
+  "repo_id": 0,
+  "target": {
+    "repo": "collective-demo/agent-skills",
+    "ref": "main",
+    "path": "skills/meeting-notes"
+  },
+  "resolved": {
+    "ref": "main",
+    "commit_sha": null,
+    "default_branch": "main"
+  },
+  "sightings": [
+    {
+      "id": "demo-collective-demo__agent-skills--skill--skills-meeting-no",
+      "at": "2026-10-23T09:31:00+08:00",
+      "source": "voice",
+      "note": "",
+      "post_url": "",
+      "share_text": "",
+      "transcript": "朋友說 github.com 斜線 collective-demo 斜線 agent-skills 裡面有會議紀錄的 skill",
+      "source_url": "",
+      "tags": [
+        "語音類"
+      ]
+    }
+  ],
+  "created_at": "2026-10-23T09:31:00+08:00",
+  "updated_at": "2026-10-23T09:31:00+08:00",
+  "analyzed_at": "2026-10-23T09:31:00+08:00",
+  "analysis": {
+    "version": "demo",
+    "status": "succeeded",
+    "model": null,
+    "turns": null,
+    "wall_s": 0,
+    "rounds": 0,
+    "diagram": false
+  }
+}

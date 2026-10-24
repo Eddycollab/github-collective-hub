@@ -1,0 +1,42 @@
+name: collective
+
+on:
+  push:
+    branches: [main]
+    paths: ['inbox/*.json']
+  workflow_dispatch:
+    inputs:
+      url:
+        description: GitHub repo URL to (re)analyze; empty = process inbox
+        required: false
+        default: ''
+      skill_path:
+        description: With url, the folder holding SKILL.md to (re)analyze; "/" = repo root; empty = the repository itself
+        required: false
+        default: ''
+      ref:
+        description: With skill_path, branch or tag to read; empty = default branch
+        required: false
+        default: ''
+
+# One run at a time: two captures arriving together queue up instead of racing on the push.
+concurrency:
+  group: collective
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  collective:
+    # REPLACE BEFORE USE: <OWNER>/<REPO> = your fork of the GitHub Collective Hub app repo,
+    # and the 40-character commit SHA of the analyze.yml you reviewed. Never use a branch name:
+    # this workflow hands your private repo's write access and your Claude token to that code.
+    # The placeholder below fails on purpose until you replace it.
+    uses: <OWNER>/<REPO>/.github/workflows/analyze.yml@0000000000000000000000000000000000000000
+    with:
+      url: ${{ inputs.url }}
+      skill_path: ${{ inputs.skill_path }}
+      ref: ${{ inputs.ref }}
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

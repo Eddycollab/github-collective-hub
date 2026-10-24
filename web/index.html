@@ -4,189 +4,353 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="referrer" content="no-referrer">
-  <title>RepoBox</title>
+  <title>GitHub Collective Hub</title>
+  <meta name="description" content="把靈感，收進未來。">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="tokens.css">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
-  <meta name="theme-color" content="#f4f7fb" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#0e2f6b" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f2f6f1" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#111914" media="(prefers-color-scheme: dark)">
   <style>
-    /* One column: the link box on top, the library below; the page itself never scrolls. */
+    /* Desktop: a fixed sidebar beside a scrolling list. Phone: the sidebar slides in from the left. */
     * { box-sizing: border-box; }
     html, body { height: 100%; }
-    body {
-      margin: 0; overflow: hidden; color: var(--ink); font: 16px/1.5 var(--sans); background-color: var(--paper);
-      /* One soft 40px grid: the dense 8px layer read as noise behind text (user feedback 2026-10-19). */
-      background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-      background-size: 40px 40px;
-    }
-    .sheet {
-      height: 100dvh; max-width: 1180px; margin: 0 auto;
-      padding: max(14px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
-      display: flex; flex-direction: column; gap: 16px;
-    }
-    button, input { font: inherit; color: inherit; }
+    body { margin: 0; color: var(--ink); font: 15px/1.55 var(--sans); background: var(--paper); }
+    button, input, select, textarea { font: inherit; color: inherit; }
     :focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+    [hidden] { display: none !important; }
+    a { color: var(--link); }
 
-    header { display: flex; align-items: center; justify-content: space-between; }
-    .mark { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 19px; letter-spacing: -0.01em; }
-    .mark svg { width: 26px; height: 26px; }
-    .chip {
-      display: inline-flex; align-items: center; gap: 6px; max-width: 60%;
-      padding: 6px 12px; border: 1.5px solid var(--line); border-radius: 999px;
-      background: var(--field); font-size: 13px; cursor: pointer;
-    }
+    .app { display: grid; grid-template-columns: 1fr; min-height: 100dvh; }
+    .side { position: fixed; inset: 0 auto 0 0; z-index: 30; width: min(300px, 86vw); transform: translateX(-102%); transition: transform .2s ease;
+            background: var(--sheet); border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 14px;
+            padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); overflow-y: auto; }
+    .side.open { transform: none; box-shadow: var(--shadow); }
+    .scrim { position: fixed; inset: 0; background: #0b140e55; z-index: 25; }
+    .brand { display: flex; gap: 10px; align-items: center; }
+    .brand svg { width: 34px; height: 34px; flex: none; }
+    .brand b { display: block; font-size: 16px; letter-spacing: -.01em; }
+    .brand small { display: block; color: var(--mute); font-size: 13px; }
+
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 10px;
+           border: 1px solid var(--line); background: var(--field); cursor: pointer; font-weight: 600; text-decoration: none; color: inherit; }
+    .btn.primary { background: var(--cyan); border-color: var(--cyan); color: var(--cyan-ink); }
+    .btn.small { min-height: 32px; padding: 0 10px; font-size: 13px; }
+    .btn.danger { color: var(--err); border-color: color-mix(in srgb, var(--err) 40%, var(--line)); }
+    .btn:disabled { opacity: .5; cursor: default; }
+    .btn.block { width: 100%; }
+    .linkish { border: 0; background: none; padding: 0; color: var(--link); cursor: pointer; font-size: 13px; text-decoration: underline; }
+
+    .nav { display: grid; gap: 2px; }
+    .nav button, .tagf button { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; border: 0; border-radius: 9px;
+            background: transparent; padding: 8px 10px; cursor: pointer; text-align: left; }
+    .nav button span:last-child, .tagf button span:last-child { color: var(--mute); font-size: 12px; font-variant-numeric: tabular-nums; }
+    .nav button[aria-pressed="true"] { background: var(--accent-soft); color: var(--link); font-weight: 700; }
+    .side h3 { margin: 6px 4px 4px; font-size: 12px; color: var(--mute); font-weight: 600; letter-spacing: .04em; }
+    .tagf { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 2px; }
+    .tagf button { width: auto; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 13px; background: var(--field); }
+    .tagf button[aria-pressed="true"] { background: var(--cyan); border-color: var(--cyan); color: var(--cyan-ink); }
+    .tagf button[aria-pressed="true"] span:last-child { color: inherit; }
+    .side-foot { margin-top: auto; display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--rule); font-size: 13px; }
+    .side-foot a, .side-foot .linkish { justify-self: start; }
+    .chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px;
+            background: var(--field); font-size: 13px; cursor: pointer; max-width: 100%; }
     .chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mute); flex: none; }
     .chip[data-ok="1"] .dot { background: var(--cyan); }
+    .chip[data-ok="demo"] .dot { background: var(--warn); }
 
-    .btn {
-      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-      min-height: 44px; padding: 0 16px; border-radius: 10px; cursor: pointer;
-      border: 2px solid var(--line); background: var(--field); font-weight: 600;
-    }
-    .btn.primary { background: var(--cyan); color: var(--cyan-ink); border-color: var(--cyan); }
-    .btn.small { min-height: 36px; padding: 0 12px; font-size: 14px; }
-    .btn:active { transform: translateY(1px); }
-    #add { display: flex; gap: 8px; }
-    #add input { flex: 1; min-width: 0; min-height: 50px; padding: 0 14px; border: 2px solid var(--line);
-                 border-radius: 10px; background: var(--field); font-size: 16px; }
-    #add .btn { min-height: 50px; padding: 0 22px; }
+    .main { min-width: 0; display: flex; flex-direction: column; gap: 12px;
+            padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(90px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+    .top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .top .brand-mini { font-weight: 700; flex: 1; min-width: 0; }
+    .icon-btn { width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 10px; background: var(--field); cursor: pointer; font-size: 18px; }
+    #q { flex: 1 1 100%; order: 3; min-width: 0; min-height: 42px; padding: 0 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--field); }
+    .tools { display: flex; gap: 8px; order: 4; width: 100%; }
+    .tools select { min-height: 36px; border: 1px solid var(--line); border-radius: 10px; background: var(--field); padding: 0 8px; }
+    .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-left: auto; }
+    .seg button { border: 0; background: var(--field); padding: 6px 12px; cursor: pointer; font-size: 13px; }
+    .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--link); font-weight: 700; }
 
-    /* One status line under the box; it carries the confirm and retry buttons when needed. */
-    .status { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-height: 36px; margin-top: -6px; font-size: 14px; }
-    #status { font-weight: 700; }
-    #status:empty, #block-repo:empty { display: none; }
-    #block-repo { font-weight: 600; overflow-wrap: anywhere; }
-    #hint { color: var(--mute); }
-    #hint:empty { display: none; }
-    .status[data-state="err"] #status { color: var(--err); }
-    .status[data-state="ok"] #status::before { content: "✓ "; }
-    .block-actions { display: flex; gap: 8px; }
-    .block-actions:empty { display: none; }
-
-    /* Library: a category index beside a card grid (desktop), a swipeable category row above it (phone). */
-    .lib { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
-    .lib-head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid var(--line); padding-bottom: 6px; }
-    .lib-head h2 { font-size: 16px; margin: 0; }
-    .lib-head a { font-size: 14px; color: var(--link); font-weight: 600; text-decoration: none; }
+    .banner { border: 1px dashed var(--warn); color: var(--warn); background: color-mix(in srgb, var(--warn) 8%, var(--sheet)); border-radius: 12px; padding: 8px 12px; font-size: 13px; }
     .lib-note { margin: 0; font-size: 13px; color: var(--err); }
     .lib-note:empty { display: none; }
-    .lib-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
-    .cats { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex: none; padding-bottom: 2px;
-            -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
-    .cats::-webkit-scrollbar { display: none; }
-    .cats button { flex: none; display: flex; align-items: baseline; gap: 6px; border: 1.5px solid var(--line); border-radius: 999px;
-                   background: var(--sheet); padding: 3px 12px; font-size: 14px; cursor: pointer; white-space: nowrap; }
-    .cats button span { font-size: 12px; color: var(--mute); font-variant-numeric: tabular-nums; }
-    .cats button[aria-pressed="true"] { background: var(--cyan); color: var(--cyan-ink); border-color: var(--cyan); font-weight: 600; }
-    .cats button[aria-pressed="true"] span { color: inherit; }
-    .cats .sep { display: none; }
-    /* Scrolls inside the one-screen layout; the scrollbar stays hidden like the rest of the page. */
-    #recent { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding: 2px 2px 28px;
-              display: grid; grid-template-columns: 1fr; gap: 12px; align-content: start; }
-    #recent::-webkit-scrollbar { display: none; }
-    .card { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1.5px solid var(--line); border-radius: 10px;
-            background: var(--sheet); color: inherit; text-decoration: none; min-width: 0; }
-    .card:hover { border-width: 2px; padding: 13.5px 15.5px; }
-    .card .tl { font-size: 17px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
-    .card .rp { font-size: 13px; color: var(--mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .card .bd { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-    .card .bd span { font-size: 12px; border: 1px solid var(--rule); border-radius: 4px; padding: 0 7px; color: var(--mute); }
-    .card.pending { border-style: dashed; }
-    .card.failed { border-color: var(--err); }
-    .card.failed .tl { color: var(--err); }
-    #recent .empty { color: var(--mute); font-size: 14px; padding: 16px 2px; margin: 0; }
-    @media (min-width: 560px) { #recent { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    /* One status line: confirm / retry buttons live here. */
+    .status { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 14px; }
+    .status[data-state="idle"] #status:empty + #block-repo:empty + #hint:empty { display: none; }
+    #status { font-weight: 700; }
+    #status:empty, #block-repo:empty, #hint:empty { display: none; }
+    #block-repo { font-weight: 600; overflow-wrap: anywhere; }
+    #hint { color: var(--mute); }
+    .status[data-state="err"] #status { color: var(--err); }
+    .status[data-state="ok"] #status { color: var(--link); }
+    .status[data-state="ok"] #status::before { content: "✓ "; }
+    .block-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .block-actions:empty { display: none; }
 
-    dialog {
-      width: min(460px, 100%); max-width: 100%; max-height: 92dvh; margin: auto auto 0;
-      padding: 18px max(20px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
-      border: 2px solid var(--line); border-bottom: 0; border-radius: 16px 16px 0 0;
-      background: var(--paper); color: var(--ink); overflow: auto;
-    }
-    dialog::backdrop { background: #0b1a3a66; }
-    dialog h2 { font-size: 17px; margin: 0 0 4px; }
-    dialog p { margin: 4px 0 12px; font-size: 14px; color: var(--mute); }
-    dialog label { display: block; margin: 10px 0 4px; font-size: 14px; font-weight: 600; }
-    dialog input { width: 100%; min-height: 44px; padding: 0 12px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--field); }
-    .drawer-actions { display: flex; gap: 8px; margin-top: 14px; }
-    .drawer-actions .btn { flex: 1; }
+    .list-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .list-head h2 { margin: 0; font-size: 18px; }
+    .list-head .count { color: var(--mute); font-size: 13px; }
+    .active-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+    .active-tags button { border: 0; background: var(--accent-soft); color: var(--link); border-radius: 999px; padding: 1px 10px; font-size: 12px; cursor: pointer; }
+
+    #recent { display: grid; grid-template-columns: 1fr; gap: 12px; align-content: start; }
+    #recent .empty { color: var(--mute); padding: 18px 4px; margin: 0; }
+    .card { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius);
+            background: var(--sheet); color: inherit; text-decoration: none; min-width: 0; text-align: left; cursor: pointer; box-shadow: 0 1px 0 #00000008; }
+    .card:hover { border-color: var(--cyan); }
+    .card .meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding-right: 34px; font-size: 12px; }
+    .pill { border-radius: 999px; padding: 0 8px; border: 1px solid var(--line); color: var(--mute); line-height: 20px; white-space: nowrap; }
+    .pill.type { background: var(--accent-softer); color: var(--link); border-color: transparent; font-weight: 600; }
+    .pill.skill { background: color-mix(in srgb, var(--warn) 14%, var(--sheet)); color: var(--warn); }
+    .pill.job-queued, .pill.job-running { border-style: dashed; }
+    .pill.job-failed { color: var(--err); border-color: var(--err); }
+    .pill.demo { color: var(--warn); border-color: var(--warn); }
+    .card .tl { font-size: 17px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; margin: 0; }
+    .card .rp { font-size: 13px; color: var(--mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; font-family: var(--mono); }
+    .card .intro { margin: 0; font-size: 14px; color: var(--mute); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .card .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+    .card .tags span { font-size: 12px; background: var(--accent-soft); color: var(--link); border-radius: 6px; padding: 0 8px; }
+    .card .err { font-size: 12px; color: var(--err); margin: 0; overflow-wrap: anywhere; }
+    .card.failed { border-color: color-mix(in srgb, var(--err) 50%, var(--line)); }
+    .card.capture { border-style: dashed; }
+    .fav { position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; border: 0; border-radius: 50%; background: transparent; cursor: pointer;
+           font-size: 18px; color: var(--mute); line-height: 1; }
+    .fav[aria-pressed="true"] { color: #d24b6a; }
+    .fav:hover { background: var(--accent-softer); }
+    /* List layout: one dense row per item. */
+    #recent.list { gap: 0; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--sheet); }
+    #recent.list .card { border: 0; border-bottom: 1px solid var(--rule); border-radius: 0; box-shadow: none; padding: 10px 14px;
+                         display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+    #recent.list .card:last-child { border-bottom: 0; }
+    #recent.list .intro { display: none; }
+    #recent.list .tl { font-size: 15px; }
+
+    .fab { position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); width: 56px; height: 56px; border-radius: 50%;
+           border: 0; background: var(--cyan); color: var(--cyan-ink); font-size: 28px; box-shadow: var(--shadow); cursor: pointer; z-index: 20; }
+
+    dialog { width: min(640px, 100%); max-width: 100%; max-height: 94dvh; margin: auto auto 0; padding: 18px max(18px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+             border: 1px solid var(--line); border-bottom: 0; border-radius: 18px 18px 0 0; background: var(--paper); color: var(--ink); overflow: auto; }
+    dialog::backdrop { background: #0b140e66; }
+    dialog h2 { font-size: 18px; margin: 0 0 6px; }
+    dialog label, .lbl { display: block; margin: 12px 0 4px; font-size: 13px; font-weight: 600; }
+    dialog input:not([type="checkbox"]):not([type="file"]), dialog textarea, dialog select { width: 100%; min-height: 42px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--field); }
+    dialog textarea { resize: vertical; }
+    .help { margin: 4px 0 0; font-size: 12px; color: var(--mute); }
+    .help.warn { color: var(--warn); }
+    .msg { margin: 10px 0 0; font-size: 14px; min-height: 1em; overflow-wrap: anywhere; }
+    .msg.err { color: var(--err); }
+    .msg.ok { color: var(--link); }
+    .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
+    .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 8px 0 4px; overflow-x: auto; }
+    .tabs button { border: 0; border-bottom: 2px solid transparent; background: none; padding: 8px 12px; cursor: pointer; white-space: nowrap; }
+    .tabs button[aria-selected="true"] { border-bottom-color: var(--cyan); color: var(--link); font-weight: 700; }
+    .voice-ctl { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+    .voice-ctl .state { font-size: 13px; color: var(--mute); }
+    .voice-ctl .state[data-live="1"] { color: var(--err); font-weight: 700; }
+    .cands { display: grid; gap: 8px; margin-top: 12px; }
+    .cand { border: 1px solid var(--line); border-radius: 12px; background: var(--sheet); padding: 10px 12px; display: grid; gap: 6px; }
+    .cand.dup { background: var(--accent-softer); }
+    .cand .head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .cand .head input { width: 18px; height: 18px; }
+    .cand .name { font-family: var(--mono); font-weight: 600; overflow-wrap: anywhere; }
+    .cand .sub { font-size: 12px; color: var(--mute); overflow-wrap: anywhere; }
+    .cand select { min-height: 34px !important; padding: 2px 8px !important; font-size: 13px; }
+    .cand .sub.warn { color: var(--warn); }
+    .tag-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag-picker button { border: 1px solid var(--line); border-radius: 999px; background: var(--field); padding: 3px 12px; font-size: 13px; cursor: pointer; }
+    .tag-picker button[aria-pressed="true"] { background: var(--cyan); border-color: var(--cyan); color: var(--cyan-ink); }
+    .newtag { display: flex; gap: 6px; margin-top: 8px; }
+    .newtag input { min-height: 34px !important; }
+    .newtag .btn { white-space: nowrap; flex: none; }
+    .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: 14px; margin: 10px 0; }
+    .kv dt { color: var(--mute); }
+    .kv dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
     .desk { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rule); }
-    .desk p { margin: 6px 0 0; }
-    @media (pointer: coarse) { .desk { display: none; } }
-    a.bm { display: inline-block; padding: 8px 14px; border: 2px dashed var(--line); border-radius: 10px;
-           color: inherit; text-decoration: none; font-weight: 600; background: var(--field); cursor: grab; white-space: nowrap; }
-    a.bm:not([href]) { cursor: default; color: var(--mute); border-color: var(--mute); }
-    @media (min-width: 900px) {
-      .sheet { padding-top: 32px; padding-bottom: 28px; gap: 18px; }
-      #add, .status { max-width: 760px; }
-      .lib-body { flex-direction: row; gap: 28px; }
-      .cats { flex-direction: column; overflow-x: hidden; overflow-y: auto; max-height: 100%; width: 200px; gap: 2px; align-self: start; padding: 8px; flex-wrap: nowrap;
-              background: var(--sheet); border: 1.5px solid var(--line); border-radius: 10px; -webkit-mask-image: none; mask-image: none; }
-      .cats button { justify-content: space-between; border: 0; border-radius: 8px; padding: 6px 10px; background: transparent; }
-      .cats button[aria-pressed="true"] { background: var(--cyan); }
-      .cats .sep { display: block; height: 1px; background: var(--rule); margin: 8px 4px; }
-      #recent { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-      dialog { margin: auto; border-bottom: 2px solid var(--line); border-radius: 16px; max-height: 86dvh; padding: 22px 24px; }
-    }
+    a.bm { display: inline-block; padding: 8px 14px; border: 2px dashed var(--line); border-radius: 10px; color: inherit; text-decoration: none; font-weight: 600; background: var(--field); cursor: grab; white-space: nowrap; }
+    a.bm:not([href]) { cursor: default; color: var(--mute); }
     details { margin-top: 14px; font-size: 13px; color: var(--mute); }
     pre { white-space: pre-wrap; word-break: break-all; font-size: 12px; margin: 6px 0 0; }
+
+    @media (min-width: 560px) { #recent:not(.list) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (min-width: 960px) {
+      .app { grid-template-columns: 272px minmax(0, 1fr); }
+      .side { position: sticky; top: 0; height: 100dvh; width: auto; transform: none; transition: none; z-index: 1; }
+      .scrim, .mobile-only { display: none !important; }
+      .main { padding: 22px 28px 40px; }
+      #q { order: 0; flex: 1 1 auto; }
+      .tools { order: 0; width: auto; }
+      #recent:not(.list) { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+      dialog { margin: auto; border-bottom: 1px solid var(--line); border-radius: 18px; max-height: 88dvh; padding: 22px 24px; }
+    }
   </style>
 </head>
 <body>
-  <main class="sheet">
-    <header>
-      <div class="mark">
-        <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-          <path d="M3 8l10-5 10 5v10l-10 5-10-5z"/><path d="M3 8l10 5 10-5M13 13v10"/>
+  <div class="app">
+    <aside id="side" class="side" aria-label="導覽">
+      <div class="brand">
+        <svg viewBox="0 0 34 34" fill="none" aria-hidden="true">
+          <rect x="1" y="1" width="32" height="32" rx="9" fill="var(--cyan)"/>
+          <path d="M9 13.5l8-4.5 8 4.5v8l-8 4.5-8-4.5z" stroke="var(--cyan-ink)" stroke-width="1.6"/>
+          <path d="M9 13.5l8 4.5 8-4.5M17 18v8" stroke="var(--cyan-ink)" stroke-width="1.6"/>
         </svg>
-        RepoBox
+        <div><b>GitHub Collective Hub</b><small>把靈感，收進未來。</small></div>
       </div>
-      <button id="conn" class="chip" type="button" aria-haspopup="dialog"><i class="dot"></i><span>尚未設定</span></button>
-    </header>
-
-    <form id="add">
-      <input id="add-url" placeholder="貼上 GitHub 連結" autocomplete="off" inputmode="url" aria-label="GitHub 連結">
-      <button class="btn primary" type="submit">收藏</button>
-    </form>
-    <div id="block" class="status" data-state="idle" aria-live="polite">
-      <span id="status"></span><span id="block-repo"></span><span id="hint">也可以在 Threads 按分享，選 RepoBox。</span>
-      <div id="block-actions" class="block-actions"></div>
-    </div>
-
-    <section class="lib">
-      <div class="lib-head">
-        <h2>書庫</h2>
-        <a id="library" href="#" target="_blank" rel="noopener">GitHub ↗</a>
+      <button id="open-add" class="btn primary block" type="button">＋ 新增收藏</button>
+      <nav id="views" class="nav" aria-label="收藏分類"></nav>
+      <section>
+        <h3>用途標籤</h3>
+        <div id="tag-filter" class="tagf" aria-label="用途標籤篩選"></div>
+      </section>
+      <div class="side-foot">
+        <button id="conn" class="chip" type="button" aria-haspopup="dialog"><i class="dot"></i><span>尚未設定</span></button>
+        <button id="open-backup" class="linkish" type="button">備份匯出／匯入</button>
+        <a id="library" href="#" target="_blank" rel="noopener">收藏庫 ↗</a>
       </div>
+    </aside>
+    <div id="scrim" class="scrim" hidden></div>
+
+    <main class="main">
+      <header class="top">
+        <button id="menu" class="icon-btn mobile-only" type="button" aria-label="開啟選單" aria-controls="side">☰</button>
+        <span class="brand-mini mobile-only">GitHub Collective Hub</span>
+        <input id="q" type="search" placeholder="搜尋專案、skill、介紹、筆記、標籤" aria-label="搜尋" autocomplete="off">
+        <div class="tools">
+          <select id="sort" aria-label="排序">
+            <option value="captured">最近收藏</option>
+            <option value="analyzed">最近分析</option>
+          </select>
+          <div id="layout" class="seg" role="group" aria-label="顯示方式">
+            <button type="button" data-layout="cards" aria-pressed="true">卡片</button>
+            <button type="button" data-layout="list" aria-pressed="false">列表</button>
+          </div>
+        </div>
+      </header>
+      <div id="banner" class="banner" role="note" hidden></div>
       <p id="lib-note" class="lib-note" role="status"></p>
-      <div class="lib-body">
-        <nav id="cats" class="cats" aria-label="分類"></nav>
-        <div id="recent" aria-live="polite"></div>
+      <div id="block" class="status" data-state="idle" aria-live="polite">
+        <span id="status"></span><span id="block-repo"></span><span id="hint"></span>
+        <div id="block-actions" class="block-actions"></div>
       </div>
-    </section>
-  </main>
+      <div class="list-head">
+        <h2 id="view-title">所有收藏</h2><span id="view-count" class="count"></span>
+        <div id="active-tags" class="active-tags"></div>
+      </div>
+      <section id="recent" aria-live="polite"></section>
+    </main>
+  </div>
+  <button id="fab" class="fab mobile-only" type="button" aria-label="新增收藏">＋</button>
+
+  <dialog id="add-dialog" aria-labelledby="add-title">
+    <h2 id="add-title">新增收藏</h2>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" data-pane="url" aria-selected="true">GitHub 網址</button>
+      <button type="button" role="tab" data-pane="share" aria-selected="false">分享文字</button>
+      <button type="button" role="tab" data-pane="voice" aria-selected="false">語音筆記</button>
+    </div>
+    <form id="add" autocomplete="off">
+      <div data-pane="url">
+        <label for="add-url">GitHub 網址</label>
+        <input id="add-url" inputmode="url" placeholder="https://github.com/owner/repo 或 SKILL.md 網址">
+        <p class="help">可貼 repo、SKILL.md 或 skill 資料夾網址，會自動去掉 .git、尾斜線與追蹤參數。</p>
+      </div>
+      <div data-pane="share" hidden>
+        <label for="share-text">分享內文</label>
+        <textarea id="share-text" rows="5" placeholder="貼上 Threads 貼文或朋友傳來的整段文字"></textarea>
+        <label for="post-url">原貼文網址（選填）</label>
+        <input id="post-url" inputmode="url" placeholder="https://www.threads.com/@…/post/…">
+        <p class="help">這個網頁讀不到 Threads 貼文內容，只會從你貼上的文字找出 GitHub 網址。</p>
+      </div>
+      <div data-pane="voice" hidden>
+        <p id="voice-privacy" class="help warn"></p>
+        <div class="voice-ctl">
+          <button id="voice-start" class="btn small" type="button">🎙 開始口述</button>
+          <button id="voice-stop" class="btn small" type="button" disabled>停止</button>
+          <button id="voice-cancel" class="btn small" type="button" disabled>取消</button>
+          <span id="voice-state" class="state" aria-live="polite"></span>
+        </div>
+        <label for="transcript">逐字稿（請確認或修正辨識結果）</label>
+        <textarea id="transcript" rows="5" placeholder="也可以直接貼上逐字稿"></textarea>
+        <button id="voice-normalize" class="linkish" type="button">把口語的「點」「斜線」轉成網址符號</button>
+        <p id="voice-warning" class="help"></p>
+        <p class="help">錄音檔／影音檔上傳轉錄是第二階段功能，目前尚未提供。</p>
+      </div>
+      <label for="add-source">來源</label>
+      <select id="add-source">
+        <option value="github">GitHub</option>
+        <option value="threads">Threads</option>
+        <option value="voice">語音分享</option>
+        <option value="friend">朋友推薦</option>
+        <option value="other">其他</option>
+      </select>
+      <div class="actions" style="justify-content:flex-start"><button id="find" class="btn" type="button">找出 GitHub 網址</button></div>
+      <div id="cands" class="cands"></div>
+      <label for="add-note">補充介紹／備註（選填）</label>
+      <textarea id="add-note" rows="2" maxlength="500"></textarea>
+      <span class="lbl">用途標籤</span>
+      <div id="add-tags" class="tag-picker"></div>
+      <div class="newtag"><input id="add-newtag" placeholder="新增標籤（最多 20 字）" maxlength="20" aria-label="新增標籤"><button id="add-newtag-btn" class="btn small" type="button">加入</button></div>
+      <p id="add-msg" class="msg" role="status"></p>
+      <div class="actions">
+        <button id="add-close" class="btn" type="button">關閉</button>
+        <button id="add-submit" class="btn primary" type="submit">收藏</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="capture-dialog" aria-labelledby="cap-title">
+    <h2 id="cap-title">收藏</h2>
+    <div id="cap-body"></div>
+    <p id="cap-msg" class="msg" role="status"></p>
+    <div id="cap-actions" class="actions"></div>
+  </dialog>
+
+  <dialog id="backup-dialog" aria-labelledby="bk-title">
+    <h2 id="bk-title">備份匯出／匯入</h2>
+    <p class="help">匯出包含你的筆記、手動標籤、最愛、狀態，以及每筆收藏的目標（不含 token）。匯入時以較新的編輯為準，收藏庫裡沒有的項目可以重新排入分析。</p>
+    <div class="actions" style="justify-content:flex-start">
+      <button id="bk-export" class="btn" type="button">下載備份 JSON</button>
+      <label class="btn" for="bk-file" style="margin:0">選擇備份檔匯入…</label>
+      <input id="bk-file" type="file" accept="application/json,.json" hidden>
+    </div>
+    <div id="bk-preview"></div>
+    <p id="bk-msg" class="msg" role="status"></p>
+    <div class="actions">
+      <button id="bk-close" class="btn" type="button">關閉</button>
+      <button id="bk-apply" class="btn primary" type="button" hidden>套用匯入</button>
+    </div>
+  </dialog>
 
   <dialog id="drawer" aria-labelledby="drawer-title">
     <h2 id="drawer-title">連結收藏庫</h2>
-    <p>只需要設定一次。token 只存在這個瀏覽器，只會送到 GitHub。</p>
-    <form id="settings">
-      <label for="repo">收藏庫（帳號/repo 名稱）</label>
-      <input id="repo" placeholder="your-name/repobox-library" autocomplete="off" autocapitalize="off">
+    <p class="help">只需要設定一次。token 只存在這個瀏覽器，只會送到 GitHub（api.github.com），不會出現在網址或紀錄裡。</p>
+    <form id="settings" autocomplete="off">
+      <label for="repo">私人收藏庫（帳號/repo 名稱）</label>
+      <input id="repo" placeholder="your-name/collective-library" autocapitalize="off">
       <label for="token">Fine-grained token</label>
-      <input id="token" type="password" autocomplete="off" placeholder="github_pat_…">
-      <div class="drawer-actions">
+      <input id="token" type="password" placeholder="github_pat_…">
+      <p class="help">只選你的私人收藏庫，權限 Contents: Read and write。想看到「分析中」，可再加 Actions: Read-only（選用）。</p>
+      <div id="dev-api-row" hidden>
+        <label for="dev-api">本機模擬 API（只在 localhost 生效）</label>
+        <input id="dev-api" placeholder="http://127.0.0.1:8787">
+      </div>
+      <p id="drawer-msg" class="msg" role="status"></p>
+      <div class="actions">
+        <button id="drawer-demo" class="btn" type="button">以示範資料瀏覽</button>
         <button id="drawer-close" class="btn" type="button" autofocus>關閉</button>
         <button class="btn primary" type="submit">儲存</button>
       </div>
     </form>
     <section class="desk" aria-label="電腦書籤">
-      <a id="bookmarklet" class="bm" href="#">收進 RepoBox</a>
-      <p>把這顆按鈕拖到書籤列，之後在 GitHub repo 頁面按一下就收下。</p>
+      <a id="bookmarklet" class="bm" href="#">收進 Collective Hub</a>
+      <p class="help">拖到書籤列。在 GitHub 頁面按一下直接收藏；在 Threads 等其他網站，先選取貼文文字再按，會帶著文字開啟並要你確認。</p>
     </section>
+    <details>
+      <summary>iPhone／iPad 怎麼收藏？</summary>
+      <p class="help">iOS 不支援網頁加入分享選單。可以在 Threads 按「分享 → 拷貝連結」或複製貼文文字，回到這個網頁按「新增收藏」貼上；或用「捷徑」App 開啟 <code>這個網址#text=（分享內容）</code>，開啟後一樣要你確認才收。</p>
+    </details>
     <details>
       <summary>最後一次收到的分享內容</summary>
       <pre id="received">（沒有）</pre>

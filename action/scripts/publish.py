@@ -4,7 +4,8 @@ CLI: publish.py --artifacts <dir> --repo <library checkout> [--push]
 
 The analyze job ran on untrusted input, so every artifact is re-validated here (load_leg) and a
 bad leg is downgraded to failed instead of aborting the batch. Captures are read from the
-repo's own inbox files, never from the artifact.
+repo's own inbox files, never from the artifact; identity (item_type, ref, skill path) comes from
+the capture and target.json must agree with it. user.json is front-end owned and never written.
 """
 from __future__ import annotations
 
@@ -19,12 +20,16 @@ from pathlib import Path
 
 import entry
 import index
+import prompt
+import tags
+import target
 import taxonomy
 import validate
 
 ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{0,63}$")
 FULL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+$")
 ENTRY_RE = re.compile(r"^library/[a-z0-9._-]+__[a-z0-9._-]+\.md$")
+GIT_PATHS = ("library", "inbox", "README.md", "index.json", "taxonomy.yml", "tags.yml")  # never user.json
 PREFIX = "repobox-out-"
 RANK = {("ok", True): 0, ("ok", False): 1, ("dedup", False): 2}
 
@@ -49,6 +54,15 @@ class Leg:
     from_inbox: bool = False
     capture: dict | None = None
     raw: str | None = None
+    item_type: str = "repository"
+    path: str | None = None
+    ref: str | None = None
+    force: bool = False
+    stage: dict | None = None
+
+    @property
+    def group(self) -> tuple:
+        return self.item_type, self.meta["id"], self.path
 
 
 def _read_json(path: Path):
@@ -85,14 +99,14 @@ def _check_meta(m) -> dict:
     ok = (_is(m.get("id"), int) and isinstance(full, str) and FULL_RE.match(full)
           and m.get("html_url") == f"https://github.com/{full}"
           and _is(m.get("description"), str, None) and _is(m.get("language"), str, None)
-          and _is(m.get("stargazers_count"), int)
+          and _is(m.get("stargazers_count"), int, None)
           and (lic is None or (isinstance(lic, dict) and _is(lic.get("spdx_id"), str, None))))
     if not ok:
         raise Reject("meta.json has unexpected shape")
     return m
 
 
-def _check_entry(repo: Path, rel, meta: dict) -> str | None:
+def _check_entry(repo: Path, rel, meta: dict, item_type: str = "repository", sub: str | None = None) -> str | None:
     if rel is None:
         return None
     if not isinstance(rel, str) or not ENTRY_RE.match(rel):
@@ -101,15 +115,41 @@ def _check_entry(repo: Path, rel, meta: dict) -> str | None:
     if path.parent != (repo / "library").resolve() or not path.is_file():
         raise Reject("status.entry is outside library or missing")
     fm, _ = entry.read_entry(path)
+    if (fm.get("item_type") or "repository") != item_type or (item_type == "skill" and fm.get("skill_path") != sub):
+        raise Reject("status.entry is a different collection item")
     if "repo_id" in fm:
         if fm["repo_id"] != meta["id"]:
             raise Reject("status.entry belongs to another repo_id")
-    elif path.stem != entry.slug(meta["full_name"]):
+    elif path.stem != target.stem(item_type, meta["full_name"], sub):
         raise Reject("status.entry does not match this repo")
     return rel
 
 
-def load_leg(d: Path, repo: Path, cats: list[str]) -> Leg:
+def _identity(item: dict, capture: dict | None, from_inbox: bool) -> tuple[str, str | None, str | None, bool]:
+    """(item_type, ref, path, force) from the repo's own capture, or the dispatch item for dispatch legs."""
+    if from_inbox:
+        if not isinstance(capture, dict):
+            raise Reject("capture is not readable")
+        try:
+            item_type, _, ref, sub = target.normalize_capture(capture)
+        except ValueError as e:
+            raise Reject(str(e)) from e
+        return item_type, ref, sub, capture.get("reanalyze") is True
+    item_type = item.get("item_type") or "repository"
+    if item_type not in target.TYPES:
+        raise Reject("item.json item_type is unknown")
+    if item_type == "repository":
+        return item_type, None, None, True
+    ref = item.get("ref")
+    if ref is not None and not target.valid_ref(ref):
+        raise Reject("item.json ref is malformed")
+    try:
+        return item_type, ref, target.normalize_path(item.get("path")), True
+    except ValueError as e:
+        raise Reject(str(e)) from e
+
+
+def load_leg(d: Path, repo: Path, cats: list[str], vocab: list[str] | None = None) -> Leg:
     leg_id = d.name[len(PREFIX):] if d.name.startswith(PREFIX) else ""
     if not ID_RE.match(leg_id):
         return Leg(id=None, status="failed", error=f"publish-reject: bad artifact name {d.name!r}")
@@ -132,7 +172,12 @@ def load_leg(d: Path, repo: Path, cats: list[str]) -> Leg:
         meta = _check_meta(_read_json(d / "meta.json"))
         if st["repo_id"] != meta["id"]:
             raise Reject("status.repo_id does not match meta.id")
-        rel = _check_entry(repo, st.get("entry"), meta)
+        item_type, ref, sub, force = _identity(item, capture, from_inbox)
+        try:
+            stage = target.verify_stage(_read_json(d / "target.json"), meta, item_type, sub, ref)
+        except ValueError as e:
+            raise Reject(str(e)) from e
+        rel = _check_entry(repo, st.get("entry"), meta, item_type, sub)
         if st["status"] == "dedup" and rel is None:
             raise Reject("dedup without an existing entry")
         if from_inbox:
@@ -145,7 +190,7 @@ def load_leg(d: Path, repo: Path, cats: list[str]) -> Leg:
         summary, svg, run = None, None, {}
         if st["status"] == "ok":
             text = (d / "summary.json").read_text(encoding="utf-8") if (d / "summary.json").is_file() else ""
-            errs = validate.validate_summary(text, cats)
+            errs = validate.validate_summary(text, cats, item_type, vocab)
             if errs:
                 raise Reject("summary.json: " + "; ".join(errs))
             summary = json.loads(text)
@@ -161,6 +206,7 @@ def load_leg(d: Path, repo: Path, cats: list[str]) -> Leg:
         leg.status, leg.error = "failed", f"publish-reject: {e}"
         return leg
     leg.status, leg.entry, leg.diagram = st["status"], rel, st["diagram"]
+    leg.item_type, leg.ref, leg.path, leg.force, leg.stage = item_type, ref, sub, force, stage
     leg.rounds, leg.wall_s, leg.meta, leg.summary, leg.svg, leg.run = (
         st["rounds"], st["wall_s"], meta, summary, svg, run)
     return leg
@@ -172,6 +218,8 @@ def _run_record(leg: Leg) -> dict:
     turns = result.get("num_turns")
     tools = leg.run.get("tools") if isinstance(leg.run.get("tools"), dict) else {}
     return {
+        "version": prompt.VERSIONS[leg.item_type],
+        "status": "succeeded",
         "model": next((k for k in usage if isinstance(k, str)), None),
         "turns": turns if _is(turns, int) else None,
         "wall_s": leg.wall_s,
@@ -185,26 +233,43 @@ def _publish_group(repo: Path, legs: list[Leg], now: str) -> Leg:
     winner = min(legs, key=lambda l: (RANK[(l.status, l.svg is not None)], l.id))
     meta = winner.meta
     rel = next((l.entry for l in legs if l.entry), None)
-    target = repo / rel if rel else repo / "library" / f"{entry.slug(meta['full_name'])}.md"
-    prev_fm = entry.read_record(target) if target.exists() else {}
-    user = entry.read_entry(target)[1] if target.exists() else None
-    new = [entry.write_sighting(l.id, l.capture) for l in legs if l.from_inbox and l.capture]
+    dest = repo / rel if rel else repo / "library" / f"{target.stem(winner.item_type, meta['full_name'], winner.path)}.md"
+    prev_fm = entry.read_record(dest) if dest.exists() else {}
+    user = entry.read_entry(dest)[1] if dest.exists() else None
+    # A re-analysis request is not a new sighting; it only refreshes the same entry.
+    new = [entry.write_sighting(l.id, l.capture) for l in legs if l.from_inbox and l.capture and not l.force]
     sightings = entry.merge_sightings(list(prev_fm.get("sightings") or []), new)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    svg_path = target.with_suffix(".svg")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    svg_path = dest.with_suffix(".svg")
+    ident = _ident(winner, legs, dest.stem)
     if winner.status == "ok":
-        fm = entry.build_frontmatter(meta, winner.summary, sightings, prev_fm or None, _run_record(winner), now=now)
+        fm = entry.build_frontmatter(meta, winner.summary, sightings, prev_fm or None, _run_record(winner), now=now,
+                                     ident=ident)
         if winner.svg is not None:
             svg_path.write_text(winner.svg, encoding="utf-8")
         elif svg_path.exists():
             svg_path.unlink()
         text = entry.render_entry(fm, winner.summary, svg_path.name if winner.svg is not None else None, user)
     else:
-        fm = entry.build_frontmatter(meta, None, sightings, prev_fm, None, now=now)
-        auto = entry.read_auto(target)
+        fm = entry.build_frontmatter(meta, None, sightings, prev_fm, None, now=now, ident=ident)
+        auto = entry.read_auto(dest)
         text = entry.render_entry(fm, None, None, user, auto=auto if auto is not None else "\n")
-    entry.write_entry_files(target, fm, text)
+    entry.write_entry_files(dest, fm, text)
     return winner
+
+
+def _ident(winner: Leg, legs: list[Leg], stem: str) -> dict:
+    st = winner.stage or {}
+    newest_ref = next((l.ref for l in sorted(legs, key=lambda l: l.id or "", reverse=True) if l.ref), None)
+    ident = {"item_type": winner.item_type, "id": stem, "path": winner.path, "ref": newest_ref}
+    if winner.status == "ok":
+        ident["resolved"] = {"ref": st.get("ref") or st.get("default_branch"), "commit_sha": st.get("commit_sha"),
+                             "default_branch": st.get("default_branch")}
+        if winner.item_type == "skill":
+            md = f"{winner.path}/SKILL.md" if winner.path else "SKILL.md"
+            ident["skill"] = {**st["skill"], "path": winner.path,
+                              "url": f"https://github.com/{winner.meta['full_name']}/blob/{st['commit_sha']}/{md}"}
+    return ident
 
 
 def _move_done(repo: Path, leg: Leg) -> None:
@@ -223,6 +288,13 @@ def _move_failed(repo: Path, leg: Leg, now: str) -> None:
     (repo / "inbox" / "failed" / src.name).write_text(
         json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     src.unlink()
+
+
+def _load_vocab(repo: Path) -> list[dict]:
+    path = repo / "tags.yml"
+    if not path.exists():
+        tags.write_default(path)
+    return tags.vocabulary(path, repo / "user.json")
 
 
 def _load_taxonomy(repo: Path) -> list[dict]:
@@ -248,13 +320,14 @@ def run(artifacts: Path, repo: Path, now: str | None = None, items: list | None 
     now = now or datetime.now(timezone.utc).isoformat(timespec="seconds")
     cats = _load_taxonomy(repo)
     names = taxonomy.names(cats)
+    vocab = _load_vocab(repo)
     dirs = sorted(d for d in Path(artifacts).iterdir() if d.is_dir()) if Path(artifacts).is_dir() else []
-    legs = [load_leg(d, repo, names) for d in dirs]
+    legs = [load_leg(d, repo, names, tags.names(vocab)) for d in dirs]
     legs += _missing_legs(repo, items, {l.id for l in legs if l.id})
-    groups: dict[int, list[Leg]] = {}
+    groups: dict[tuple, list[Leg]] = {}
     for leg in legs:
         if leg.status in ("ok", "dedup"):
-            groups.setdefault(leg.meta["id"], []).append(leg)
+            groups.setdefault(leg.group, []).append(leg)
     counts = {"ok": 0, "dedup": 0, "failed": 0, "failed_ids": []}
     for group in groups.values():
         try:
@@ -273,7 +346,7 @@ def run(artifacts: Path, repo: Path, now: str | None = None, items: list | None 
             _move_failed(repo, leg, now)
     entries = index.collect(repo / "library") if (repo / "library").exists() else []
     (repo / "README.md").write_text(index.render_readme(entries, cats, today=now[:10]), encoding="utf-8")
-    (repo / "index.json").write_text(index.render_index(entries), encoding="utf-8")
+    (repo / "index.json").write_text(index.render_index(entries, cats, vocab), encoding="utf-8")
     return counts
 
 
@@ -282,12 +355,12 @@ def _git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProc
 
 
 def commit(repo: Path, counts: dict) -> bool:
-    paths = [p for p in ("library", "inbox", "README.md", "index.json", "taxonomy.yml") if (repo / p).exists()]
+    paths = [p for p in GIT_PATHS if (repo / p).exists()]
     if paths:
         _git(repo, "add", "-A", "--", *paths)
     if _git(repo, "diff", "--cached", "--quiet", check=False).returncode == 0:
         return False
-    msg = f"repobox: {counts['ok']} analyzed, {counts['dedup']} sightings, {counts['failed']} failed"
+    msg = f"collective: {counts['ok']} analyzed, {counts['dedup']} sightings, {counts['failed']} failed"
     _git(repo, "-c", "user.name=github-actions[bot]",
          "-c", "user.email=41898282+github-actions[bot]@users.noreply.github.com", "commit", "-q", "-m", msg)
     return True

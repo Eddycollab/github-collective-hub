@@ -8,11 +8,13 @@ from pathlib import Path
 from _path import FIXTURES, SCRIPTS  # noqa: F401
 import entry
 import publish
+import target
 from helpers import ANALYSIS, meta, write_entry
 
 NOW = "2026-10-18T12:00:00+00:00"
 SVG = (FIXTURES / "svg_ok.svg").read_text(encoding="utf-8")
 RUN = {"result": {"num_turns": 5, "modelUsage": {"claude-opus-5-5": {}}}, "tools": {"deepwiki": True}}
+UNSET = object()
 
 
 def capture(url="https://github.com/Owner/Repo", at="2026-10-18T10:00:00+08:00", **kw):
@@ -36,14 +38,20 @@ class PublishTest(unittest.TestCase):
         return p
 
     def leg(self, iid, status="ok", m=None, summary=ANALYSIS, svg=SVG, entry_path=None, error=None,
-            capture_obj=None, raw=None, force=False, repo_id="auto", item_id=None, run=RUN):
+            capture_obj=None, raw=None, force=False, repo_id="auto", item_id=None, run=RUN, stage=UNSET,
+            item_type="repository", path=None, ref=None):
         d = self.art / f"repobox-out-{iid}"
         d.mkdir()
-        item = {"id": item_id or iid, "url": None, "capture": capture_obj, "raw": raw, "force": force}
+        item = {"id": item_id or iid, "url": None, "capture": capture_obj, "raw": raw, "force": force,
+                "item_type": item_type, "path": path, "ref": ref}
         (d / "item.json").write_text(json.dumps(item))
         m = meta() if m is None and status != "failed" else m
         if m is not None:
             (d / "meta.json").write_text(json.dumps(m))
+            if stage is UNSET:
+                stage = target.stage_record(m, "repository") if item_type == "repository" else None
+            if stage is not None:
+                (d / "target.json").write_text(json.dumps(stage, ensure_ascii=False))
         if status == "ok":
             (d / "summary.json").write_text(json.dumps(summary, ensure_ascii=False))
             (d / "run.json").write_text(json.dumps(run))
@@ -71,8 +79,8 @@ class PublishTest(unittest.TestCase):
         self.assertEqual((res["ok"], res["dedup"], res["failed"]), (1, 0, 0))
         fm, user = self.md()
         self.assertEqual(fm["repo_id"], 1)
-        self.assertEqual(fm["analysis"], {"model": "claude-opus-5-5", "turns": 5, "wall_s": 200, "rounds": 1,
-                                          "deepwiki": True, "diagram": True})
+        self.assertEqual(fm["analysis"], {"version": "repository-v2", "status": "succeeded", "model": "claude-opus-5-5",
+                                          "turns": 5, "wall_s": 200, "rounds": 1, "deepwiki": True, "diagram": True})
         self.assertEqual([s["id"] for s in fm["sightings"]], ["20261018-1"])
         self.assertEqual(fm["analyzed_at"], NOW)
         self.assertEqual(user, entry.USER_DEFAULT)
@@ -330,6 +338,111 @@ class PublishTest(unittest.TestCase):
         self.assertEqual(side["requirements"], ANALYSIS["requirements"])
 
 
+SHA = "0123456789abcdef0123456789abcdef01234567"
+
+
+def skill_capture(path="skills/pdf", ref=None, **kw):
+    c = {"v": 2, "item_type": "skill", "url": "https://github.com/Owner/Repo",
+         "target": {"repo": "Owner/Repo", "ref": ref, "path": path}, "captured_at": "2026-10-24T10:00:00+08:00",
+         "source": "threads"}
+    c.update(kw)
+    return c
+
+
+class PublishSkillTest(unittest.TestCase):
+    setUp, inbox, leg, run_publish, md = PublishTest.setUp, PublishTest.inbox, PublishTest.leg, PublishTest.run_publish, PublishTest.md
+
+    def skill_leg(self, iid, path="skills/pdf", ref="main", status="ok", stage=UNSET, **kw):
+        from helpers import SKILL_ANALYSIS
+        m = meta(default_branch="main")
+        if stage is UNSET:
+            stage = target.stage_record(m, "skill", ref, SHA, path, f"---\nname: {path.rsplit('/', 1)[-1]}\n---\n")
+        kw.setdefault("summary", SKILL_ANALYSIS)
+        return self.leg(iid, status=status, m=m, stage=stage, item_type="skill", path=path, **kw)
+
+    def stem(self, path="skills/pdf"):
+        return target.stem("skill", "Owner/Repo", path)
+
+    def test_two_skills_in_one_repo_are_two_entries(self):
+        self.inbox("1", skill_capture("skills/pdf"))
+        self.inbox("2", skill_capture("skills/docx"))
+        self.inbox("3", capture())
+        self.skill_leg("1", "skills/pdf")
+        self.skill_leg("2", "skills/docx", svg=None)
+        self.leg("3")
+        res = self.run_publish()
+        self.assertEqual((res["ok"], res["failed"]), (3, 0))
+        idx = json.loads((self.repo / "index.json").read_text(encoding="utf-8"))
+        self.assertEqual(sorted(e["key"] for e in idx["entries"]),
+                         ["repository:owner/repo", "skill:owner/repo:skills/docx", "skill:owner/repo:skills/pdf"])
+        rec, _ = self.md(self.stem())
+        self.assertEqual(rec["resolved"], {"ref": "main", "commit_sha": SHA, "default_branch": "main"})
+        self.assertEqual(rec["skill"]["url"], f"https://github.com/Owner/Repo/blob/{SHA}/skills/pdf/SKILL.md")
+        self.assertEqual(rec["target"], {"repo": "Owner/Repo", "ref": None, "path": "skills/pdf"})
+        self.assertEqual(rec["analysis"]["version"], "skill-v1")
+        self.assertIn("## 使用流程圖", (self.lib / f"{self.stem()}.md").read_text(encoding="utf-8"))
+
+    def test_skill_capture_ref_must_match_stage(self):
+        self.inbox("1", skill_capture(ref="dev"))
+        self.skill_leg("1", ref="main")
+        res = self.run_publish()
+        self.assertEqual(res["failed"], 1)
+        self.assertIn("ref", json.loads((self.repo / "inbox/failed/1.json").read_text(encoding="utf-8"))["error"])
+
+    def test_skill_stage_path_must_match_capture(self):
+        self.inbox("1", skill_capture("skills/pdf"))
+        m = meta(default_branch="main")
+        self.skill_leg("1", stage=target.stage_record(m, "skill", "main", SHA, "skills/evil", ""))
+        self.assertEqual(self.run_publish()["failed"], 1)
+        self.assertFalse(any(self.lib.glob("*.md")) if self.lib.exists() else False)
+
+    def test_missing_target_json_rejected(self):
+        self.inbox("1", capture())
+        self.leg("1", stage=None)
+        self.assertEqual(self.run_publish()["failed"], 1)
+
+    def test_repository_leg_cannot_land_on_skill_entry(self):
+        self.inbox("1", skill_capture())
+        self.skill_leg("1")
+        self.run_publish()
+        self.leg("dispatch-2", force=True, entry_path=f"library/{self.stem()}.md")
+        self.assertEqual(self.run_publish()["failed"], 1)
+
+    def test_reanalyze_updates_same_entry_without_sighting(self):
+        self.inbox("1", skill_capture())
+        self.skill_leg("1")
+        self.run_publish()
+        (self.repo / "user.json").write_text('{"items": {"skill:owner/repo:skills/pdf": {"note": "我的筆記"}}}', encoding="utf-8")
+        user_before = (self.repo / "user.json").read_bytes()
+        shutil.rmtree(self.art)
+        self.art.mkdir()
+        self.inbox("2", skill_capture(reanalyze=True, ref="main"))
+        self.skill_leg("2", entry_path=f"library/{self.stem()}.md")
+        res = publish.run(self.art, self.repo, now="2026-10-25T00:00:00+00:00")
+        self.assertEqual(res["ok"], 1)
+        rec, _ = self.md(self.stem())
+        self.assertEqual([s["id"] for s in rec["sightings"]], ["1"])
+        self.assertEqual(rec["analyzed_at"], "2026-10-25T00:00:00+00:00")
+        self.assertEqual(rec["created_at"], NOW)
+        self.assertEqual(rec["target"]["ref"], "main")
+        self.assertEqual(len(list(self.lib.glob("*.md"))), 1)
+        self.assertEqual((self.repo / "user.json").read_bytes(), user_before)
+        self.assertTrue((self.repo / "inbox/done/2.json").exists())
+
+    def test_commit_never_stages_user_json(self):
+        self.assertNotIn("user.json", publish.GIT_PATHS)
+
+    def test_v2_capture_sighting_fields_land_in_sidecar(self):
+        self.inbox("1", capture(v=2, item_type="repository", target={"repo": "Owner/Repo", "ref": None, "path": None},
+                                share_text="三個網址的分享文", post_url="https://www.threads.com/@x/post/1", tags=["程式類"]))
+        self.leg("1")
+        self.run_publish()
+        rec, _ = self.md()
+        s = rec["sightings"][0]
+        self.assertEqual((s["share_text"], s["post_url"], s["tags"]), ("三個網址的分享文", "https://www.threads.com/@x/post/1", ["程式類"]))
+        self.assertEqual(rec["capture_tags"], ["程式類"])
+
+
 def git(cwd, *args):
     return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True).stdout
 
@@ -371,7 +484,7 @@ class PushTest(unittest.TestCase):
         self.assertFalse(publish.commit(self.b, {"ok": 0, "dedup": 0, "failed": 0}))
         (self.b / "README.md").write_text("x\n")
         self.assertTrue(publish.commit(self.b, {"ok": 1, "dedup": 0, "failed": 0}))
-        self.assertEqual(git(self.b, "log", "-1", "--format=%s").strip(), "repobox: 1 analyzed, 0 sightings, 0 failed")
+        self.assertEqual(git(self.b, "log", "-1", "--format=%s").strip(), "collective: 1 analyzed, 0 sightings, 0 failed")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,96 @@
+{
+  "schema_version": 2,
+  "description": "",
+  "language": null,
+  "stars": null,
+  "stars_at": null,
+  "url": "",
+  "category": "agent-skill",
+  "tags": [],
+  "stack": [],
+  "examples": [],
+  "highlights": [
+    "示範：skill 的借鏡重點。"
+  ],
+  "suggested_tags": [
+    "簡報類",
+    "程式類"
+  ],
+  "fit": [
+    "（推論示範）可以搭配簡報類教材流程。"
+  ],
+  "capture_tags": [],
+  "item_type": "skill",
+  "repo": "collective-demo/agent-skills",
+  "skill": {
+    "name": "pptx-builder",
+    "description": "示範：依大綱產生 PowerPoint 的 skill",
+    "license": "MIT",
+    "path": "skills/pptx-builder",
+    "url": ""
+  },
+  "tagline": "讓 agent 幫你做 PowerPoint",
+  "intro": "（示範資料）虛構的 skill 範例，展示 Skills 專區如何呈現名稱、觸發情境與相容性。",
+  "problem": "示範：需要固定格式的簡報時，agent 不知道版型規則。",
+  "requirements": [
+    "需要準備：示範資料"
+  ],
+  "triggers": [
+    "示範：使用者要求「把這份大綱做成簡報」"
+  ],
+  "inputs": [
+    "示範：文字大綱"
+  ],
+  "outputs": [
+    "示範：.pptx 檔案"
+  ],
+  "compatible_tools": [],
+  "dependencies": [
+    "示範：python-pptx"
+  ],
+  "permissions": [
+    "示範：寫入工作資料夾的檔案"
+  ],
+  "install": [
+    "示範：依來源 README 的說明安裝"
+  ],
+  "summary": "（示範資料）示範用 skill 摘要。",
+  "id": "collective-demo__agent-skills--skill--skills-pptx-builder-11b8ae",
+  "key": "skill:collective-demo/agent-skills:skills/pptx-builder",
+  "repo_id": 0,
+  "target": {
+    "repo": "collective-demo/agent-skills",
+    "ref": "main",
+    "path": "skills/pptx-builder"
+  },
+  "resolved": {
+    "ref": "main",
+    "commit_sha": null,
+    "default_branch": "main"
+  },
+  "sightings": [
+    {
+      "id": "demo-collective-demo__agent-skills--skill--skills-pptx-build",
+      "at": "2026-10-23T09:30:00+08:00",
+      "source": "github",
+      "note": "",
+      "post_url": "",
+      "share_text": "",
+      "transcript": "",
+      "source_url": "",
+      "tags": []
+    }
+  ],
+  "created_at": "2026-10-23T09:30:00+08:00",
+  "updated_at": "2026-10-23T09:30:00+08:00",
+  "analyzed_at": "2026-10-23T09:30:00+08:00",
+  "analysis": {
+    "version": "demo",
+    "status": "succeeded",
+    "model": null,
+    "turns": null,
+    "wall_s": 0,
+    "rounds": 0,
+    "diagram": false
+  }
+}

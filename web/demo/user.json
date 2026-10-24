@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-10-23T10:00:00+08:00",
+  "items": {
+    "repository:collective-demo/slide-forge": {
+      "tags": [
+        "簡報類",
+        "AI 工具"
+      ],
+      "note": "示範筆記：下次做研習簡報試試看。",
+      "favorite": true,
+      "updated_at": "2026-10-23T10:00:00+08:00"
+    },
+    "repository:collective-demo/hakka-tts": {
+      "status": "in_use",
+      "favorite": false,
+      "updated_at": "2026-10-21T10:00:00+08:00"
+    },
+    "repository:collective-demo/classroom-kit": {
+      "status": "archived",
+      "updated_at": "2026-10-12T10:00:00+08:00"
+    }
+  }
+}

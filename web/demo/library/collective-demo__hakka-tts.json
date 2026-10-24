@@ -1,0 +1,77 @@
+{
+  "schema_version": 2,
+  "description": "",
+  "language": null,
+  "stars": null,
+  "stars_at": null,
+  "url": "",
+  "category": "model-inference",
+  "tags": [],
+  "stack": [
+    "Python"
+  ],
+  "examples": [
+    "示範：輸入客語文字，得到朗讀音檔。"
+  ],
+  "highlights": [
+    "示範：借鏡一。",
+    "示範：借鏡二。"
+  ],
+  "suggested_tags": [
+    "語音類",
+    "教育應用"
+  ],
+  "fit": [
+    "（推論示範）客語語音教材。"
+  ],
+  "capture_tags": [
+    "語音類"
+  ],
+  "item_type": "repository",
+  "repo": "collective-demo/hakka-tts",
+  "tagline": "客語文字轉語音示範",
+  "intro": "（示範資料）虛構的語音專案，用來展示「使用中」狀態與語音類標籤。",
+  "problem": "示範：缺少客語語音素材。",
+  "requirements": [
+    "平台：Linux",
+    "需要準備：示範資料"
+  ],
+  "summary": "（示範資料）示範摘要。",
+  "id": "collective-demo__hakka-tts",
+  "key": "repository:collective-demo/hakka-tts",
+  "repo_id": 0,
+  "target": {
+    "repo": "collective-demo/hakka-tts",
+    "ref": null,
+    "path": null
+  },
+  "resolved": null,
+  "skill": null,
+  "sightings": [
+    {
+      "id": "demo-collective-demo__hakka-tts",
+      "at": "2026-10-20T15:00:00+08:00",
+      "source": "friend",
+      "note": "",
+      "post_url": "",
+      "share_text": "",
+      "transcript": "",
+      "source_url": "",
+      "tags": [
+        "語音類"
+      ]
+    }
+  ],
+  "created_at": "2026-10-20T15:00:00+08:00",
+  "updated_at": "2026-10-20T15:00:00+08:00",
+  "analyzed_at": "2026-10-20T15:00:00+08:00",
+  "analysis": {
+    "version": "demo",
+    "status": "succeeded",
+    "model": null,
+    "turns": null,
+    "wall_s": 0,
+    "rounds": 0,
+    "diagram": false
+  }
+}

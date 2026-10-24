@@ -9,6 +9,17 @@ ANALYSIS = {
     "requirements": ["平台：只支援 Windows", "費用：免費"],
     "summary": "這是一個用來測試的專案，說明寫得夠長才會通過驗證。", "category": "dev-tool", "tags": ["cli", "test"],
     "stack": ["Python"], "highlights": ["第一個值得借鏡的地方。", "第二個值得借鏡的地方。"],
+    "problem": "下載資料夾越堆越亂，找不到要的檔案。", "suggested_tags": ["程式類"],
+    "fit": ["可以拿來整理教育平台的教材檔案。"],
+}
+SKILL_ANALYSIS = {
+    "tagline": "把 PDF 變成可讀的重點", "intro": "讓 AI 助理能讀懂 PDF 檔案，幫你抽出文字、表格並整理成重點，不用自己一頁頁翻。",
+    "problem": "PDF 內容難以直接交給 AI 處理。", "triggers": ["使用者要求讀取或整理 PDF 時"],
+    "inputs": ["PDF 檔案"], "outputs": ["整理好的文字與表格"], "compatible_tools": ["Claude Code"],
+    "dependencies": ["Python 3.10", "pypdf"], "permissions": ["讀寫本機檔案"], "install": ["複製到 ~/.claude/skills"],
+    "requirements": ["需要準備：Python 環境"], "summary": "SKILL.md 描述流程，scripts 內有抽取文字的 Python 腳本。",
+    "category": "agent-skill", "tags": ["pdf"], "stack": ["Python"], "highlights": ["把重複步驟寫成腳本再由技能呼叫。"],
+    "suggested_tags": ["AI 工具"], "fit": ["可以讓教育平台自動整理講義 PDF。"],
 }
 
 

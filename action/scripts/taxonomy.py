@@ -17,6 +17,7 @@ DEFAULT: list[dict] = [
     {"name": "data-processing", "definition": "資料擷取、轉換、檢索、RAG 與向量資料處理"},
     {"name": "frontend", "definition": "網頁或桌面介面、UI 元件與前端應用"},
     {"name": "infrastructure", "definition": "部署、雲端、資料庫、監控與維運基礎設施"},
+    {"name": "agent-skill", "definition": "給 AI agent 載入的技能包（SKILL.md）與其輔助檔"},
     {"name": "other", "definition": "不屬於以上分類的專案"},
 ]
 

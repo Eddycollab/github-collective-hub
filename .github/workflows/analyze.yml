@@ -1,4 +1,4 @@
-name: repobox-analyze
+name: collective-analyze
 
 # Reusable workflow: callers pin it by commit SHA and pass their Claude token.
 on:
@@ -9,6 +9,21 @@ on:
         type: string
         required: false
         default: ''
+      skill_path:
+        description: With url, re-analyze the skill in this folder (holding SKILL.md); "/" = repo root
+        type: string
+        required: false
+        default: ''
+      ref:
+        description: With skill_path, the branch or tag to read; empty = default branch
+        type: string
+        required: false
+        default: ''
+      model:
+        description: Claude Code --model value (an alias such as opus, or a model id)
+        type: string
+        required: false
+        default: opus
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN:
         required: true
@@ -55,12 +70,15 @@ jobs:
       - id: list
         env:
           INPUT_URL: ${{ inputs.url }}
+          INPUT_SKILL_PATH: ${{ inputs.skill_path }}
+          INPUT_REF: ${{ inputs.ref }}
         run: |
           set -euo pipefail
           mkdir -p inbox
-          items=$(python3 "$REPOBOX/action/scripts/items.py" --inbox inbox --url "$INPUT_URL" --run-id "$GITHUB_RUN_ID")
+          items=$(python3 "$REPOBOX/action/scripts/items.py" --inbox inbox --url "$INPUT_URL" \
+            --skill-path "$INPUT_SKILL_PATH" --ref "$INPUT_REF" --run-id "$GITHUB_RUN_ID")
           echo "items=$items" >> "$GITHUB_OUTPUT"
-          echo "$items" | jq -r '.[] | "\(.id)  \(.url // ("ERROR: " + .error))"'
+          echo "$items" | jq -r '.[] | "\(.id)  \(.item_type // "-")  \(.url // ("ERROR: " + .error))  \(.path // "")"'
 
   analyze:
     needs: plan
@@ -118,11 +136,16 @@ jobs:
           ERR: ${{ matrix.item.error }}
         run: python3 "$REPOBOX/action/scripts/status.py" "$STAGE/status.json" --status failed --error "$ERR"
 
+      # A skill is pinned to the commit its ref points at now; SKILL.md must exist there.
+      # The ref is @uri-encoded because branch names may contain "/".
       - name: Resolve target repo
         id: resolve
         if: matrix.item.error == null
         env:
           URL: ${{ matrix.item.url }}
+          ITEM_TYPE: ${{ matrix.item.item_type }}
+          SKILL_PATH: ${{ matrix.item.path }}
+          REF: ${{ matrix.item.ref }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -uo pipefail
@@ -133,6 +156,24 @@ jobs:
           gh api "repos/${BASH_REMATCH[1]}/$repo" > "$STAGE/meta.json" 2> "$RUNNER_TEMP/gh.err" || fail "$(head -c 200 "$RUNNER_TEMP/gh.err")"
           [ "$(jq -r .private "$STAGE/meta.json")" = "false" ] || { rm -f "$STAGE/meta.json"; fail "only public repos"; }
           full=$(jq -r .full_name "$STAGE/meta.json")
+          stage=(--meta "$STAGE/meta.json" --item-type "$ITEM_TYPE" --out "$STAGE/target.json")
+          if [ "$ITEM_TYPE" = "skill" ]; then
+            ref="${REF:-$(jq -r .default_branch "$STAGE/meta.json")}"
+            enc=$(jq -rn --arg r "$ref" '$r|@uri')
+            sha=$(gh api "repos/$full/commits/$enc" --jq .sha 2> "$RUNNER_TEMP/gh.err") || fail "ref $ref: $(head -c 200 "$RUNNER_TEMP/gh.err")"
+            [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || fail "ref $ref did not resolve to a commit"
+            md="${SKILL_PATH:+$SKILL_PATH/}SKILL.md"
+            mdenc=$(jq -rn --arg p "$md" '$p|split("/")|map(@uri)|join("/")')
+            size=$(gh api "repos/$full/contents/$mdenc?ref=$sha" --jq 'if .type == "file" then .size else -1 end' 2> "$RUNNER_TEMP/gh.err") \
+              || fail "$md not found at $ref ($sha)"
+            [ "$size" -ge 0 ] && [ "$size" -le 262144 ] || fail "$md is not a file of at most 256 KiB"
+            gh api -H 'Accept: application/vnd.github.raw+json' "repos/$full/contents/$mdenc?ref=$sha" > "$RUNNER_TEMP/SKILL.md" \
+              2> "$RUNNER_TEMP/gh.err" || fail "cannot read $md"
+            stage+=(--ref "$ref" --sha "$sha" --path "$SKILL_PATH" --skill-md "$RUNNER_TEMP/SKILL.md")
+            echo "sha=$sha" >> "$GITHUB_OUTPUT"
+            echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          fi
+          python3 "$REPOBOX/action/scripts/target.py" stage "${stage[@]}" 2> "$RUNNER_TEMP/stage.err" || fail "$(head -c 200 "$RUNNER_TEMP/stage.err")"
           {
             echo "full=$full"
             echo "repo_id=$(jq -r .id "$STAGE/meta.json")"
@@ -147,9 +188,12 @@ jobs:
           FULL: ${{ steps.resolve.outputs.full }}
           REPO_ID: ${{ steps.resolve.outputs.repo_id }}
           FORCE: ${{ matrix.item.force }}
+          ITEM_TYPE: ${{ matrix.item.item_type }}
+          SKILL_PATH: ${{ matrix.item.path }}
         run: |
           set -euo pipefail
-          entry=$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import entry; from pathlib import Path; p = entry.find_entry(Path("library"), int(sys.argv[2]), sys.argv[3]); print(p.as_posix() if p else "")' "$REPOBOX/action/scripts" "$REPO_ID" "$FULL")
+          entry=$(python3 "$REPOBOX/action/scripts/target.py" lookup --library library --item-type "$ITEM_TYPE" \
+            --repo-id "$REPO_ID" --full "$FULL" --path "$SKILL_PATH")
           echo "entry=$entry" >> "$GITHUB_OUTPUT"
           if [ "$FORCE" = "true" ] || [ -z "$entry" ]; then echo "analyze=true" >> "$GITHUB_OUTPUT"; else echo "analyze=false" >> "$GITHUB_OUTPUT"; fi
           echo "existing entry: ${entry:-<none>}  force: $FORCE"
@@ -166,11 +210,32 @@ jobs:
         timeout-minutes: 8
         env:
           FULL: ${{ steps.resolve.outputs.full }}
+          ITEM_TYPE: ${{ matrix.item.item_type }}
+          SKILL_PATH: ${{ matrix.item.path }}
+          SHA: ${{ steps.resolve.outputs.sha }}
         run: |
           set -euo pipefail
           # Symlinks would let Read reach outside $TARGET (e.g. /proc, ~/.claude): check them
           # out as plain files, then drop any that slipped through.
-          git -c core.symlinks=false clone --depth 1 "https://github.com/$FULL.git" "$TARGET"
+          if [ "$ITEM_TYPE" = "skill" ]; then
+            # Claude sees only the skill folder plus the repo's README/LICENSE, at the resolved commit.
+            SRC="$RUNNER_TEMP/src"
+            git init -q "$SRC"
+            git -C "$SRC" -c core.symlinks=false fetch -q --depth 1 "https://github.com/$FULL.git" "$SHA"
+            git -C "$SRC" -c core.symlinks=false checkout -q FETCH_HEAD
+            find "$SRC" -type l -delete
+            dir="$SRC${SKILL_PATH:+/$SKILL_PATH}"
+            [ -f "$dir/SKILL.md" ] || { echo "::error::SKILL.md missing at $SHA"; exit 1; }
+            mkdir -p "$TARGET"
+            cp -R "$dir/." "$TARGET/"
+            rm -rf "$TARGET/_repo_context"
+            mkdir -p "$TARGET/_repo_context"
+            find "$SRC" -maxdepth 1 -type f \( -iname 'README*' -o -iname 'LICENSE*' -o -iname 'LICENCE*' \) \
+              -exec cp {} "$TARGET/_repo_context/" \;
+            rm -rf "$SRC"
+          else
+            git -c core.symlinks=false clone --depth 1 "https://github.com/$FULL.git" "$TARGET"
+          fi
           # Repo-supplied agent config (hooks, MCP servers, memory files) must never load;
           # --add-dir directories are CLAUDE.md sources, so strip them at every depth.
           rm -rf "$TARGET/.claude" "$TARGET/.mcp.json" "$TARGET/.git"
@@ -200,6 +265,11 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           DISABLE_AUTOUPDATER: '1'
           FULL: ${{ steps.resolve.outputs.full }}
+          ITEM_TYPE: ${{ matrix.item.item_type }}
+          SKILL_PATH: ${{ matrix.item.path }}
+          REF: ${{ steps.resolve.outputs.ref }}
+          SHA: ${{ steps.resolve.outputs.sha }}
+          MODEL: ${{ inputs.model }}
         run: |
           set +e
           TOKEN="$CLAUDE_CODE_OAUTH_TOKEN"; unset CLAUDE_CODE_OAUTH_TOKEN
@@ -207,7 +277,11 @@ jobs:
           CHECK="$AB/skills/arch-blueprint/scripts/check.py"
           TAX=-; TAXARG=()
           if [ -f "$GITHUB_WORKSPACE/taxonomy.yml" ]; then TAX="$GITHUB_WORKSPACE/taxonomy.yml"; TAXARG=(--taxonomy "$TAX"); fi
-          FLAGS=(--model opus --output-format stream-json --verbose
+          VOCAB=-; USERJ=-
+          [ -f "$GITHUB_WORKSPACE/tags.yml" ] && VOCAB="$GITHUB_WORKSPACE/tags.yml"
+          [ -f "$GITHUB_WORKSPACE/user.json" ] && USERJ="$GITHUB_WORKSPACE/user.json"
+          VARG=(--item-type "$ITEM_TYPE" --vocab "$VOCAB" --user-json "$USERJ")
+          FLAGS=(--model "${MODEL:-opus}" --output-format stream-json --verbose
             --restricted --permission-mode dontAsk
             --tools Read Glob Grep Write Edit
             --strict-mcp-config
@@ -218,13 +292,14 @@ jobs:
           claude_run() { CLAUDE_CODE_OAUTH_TOKEN="$TOKEN" claude "$@" "${FLAGS[@]}" < /dev/null; }
           start=$(date +%s)
           PROMPT=$(python3 "$S/prompt.py" analyze --full "$FULL" --target "$TARGET" --out "$OUT" \
-            --skill "$AB/skills/arch-blueprint/SKILL.md" --taxonomy "$TAX")
+            --skill "$AB/skills/arch-blueprint/SKILL.md" --taxonomy "$TAX" "${VARG[@]}" \
+            --skill-path "$SKILL_PATH" --ref "$REF" --sha "$SHA")
           claude_run -p "$PROMPT" --max-turns 80 > "$RUNNER_TEMP/stream-0.jsonl"
           rc=$?
           python3 "$S/claude_stream.py" "$RUNNER_TEMP"/stream-*.jsonl "$STAGE/run.json"
           SID=$(jq -r '.result.session_id // empty' "$STAGE/run.json")
-          if [ -n "$SID" ] && ! python3 "$S/validate.py" summary "$OUT/summary.json" "${TAXARG[@]}" > "$RUNNER_TEMP/summary-errs.txt"; then
-            FIXS=$(python3 "$S/prompt.py" fix-summary --out "$OUT" --errors "$RUNNER_TEMP/summary-errs.txt")
+          if [ -n "$SID" ] && ! python3 "$S/validate.py" summary "$OUT/summary.json" "${TAXARG[@]}" "${VARG[@]}" >"$RUNNER_TEMP/summary-errs.txt"; then
+            FIXS=$(python3 "$S/prompt.py" fix-summary --out "$OUT" --errors "$RUNNER_TEMP/summary-errs.txt" --item-type "$ITEM_TYPE")
             claude_run -p "$FIXS" --resume "$SID" --max-turns 10 > "$RUNNER_TEMP/stream-0s.jsonl"
             python3 "$S/claude_stream.py" "$RUNNER_TEMP"/stream-*.jsonl "$STAGE/run.json"
           fi
@@ -252,12 +327,15 @@ jobs:
           CLAUDE_EXIT: ${{ steps.claude.outputs.exit }}
           WALL: ${{ steps.claude.outputs.wall }}
           ROUNDS: ${{ steps.claude.outputs.rounds }}
+          ITEM_TYPE: ${{ matrix.item.item_type }}
         run: |
           set -uo pipefail
           S="$REPOBOX/action/scripts"
           CHECK="$AB/skills/arch-blueprint/scripts/check.py"
           common=(--entry "$ENTRY" --repo-id "$REPO_ID" --rounds "${ROUNDS:-0}" --wall-s "${WALL:-0}" --claude-exit "${CLAUDE_EXIT:-}")
-          TAXARG=(); [ -f "$GITHUB_WORKSPACE/taxonomy.yml" ] && TAXARG=(--taxonomy "$GITHUB_WORKSPACE/taxonomy.yml")
+          TAXARG=(--item-type "$ITEM_TYPE"); [ -f "$GITHUB_WORKSPACE/taxonomy.yml" ] && TAXARG+=(--taxonomy "$GITHUB_WORKSPACE/taxonomy.yml")
+          [ -f "$GITHUB_WORKSPACE/tags.yml" ] && TAXARG+=(--vocab "$GITHUB_WORKSPACE/tags.yml")
+          [ -f "$GITHUB_WORKSPACE/user.json" ] && TAXARG+=(--user-json "$GITHUB_WORKSPACE/user.json")
           extra=$(find "$OUT" -mindepth 1 ! -name summary.json ! -name diagram.svg -printf '%P\n')
           if [ -n "$extra" ]; then
             python3 "$S/status.py" "$STAGE/status.json" --status failed --error "unexpected files in out: $(echo "$extra" | head -5 | tr '\n' ' ')" "${common[@]}"
@@ -274,7 +352,7 @@ jobs:
             python3 "$S/status.py" "$STAGE/status.json" --status ok "${diagram[@]}" "${common[@]}"
           fi
           {
-            echo "## $FULL"
+            echo "## $FULL ($ITEM_TYPE)"
             jq -r '"- status: \(.status)  diagram: \(.diagram)  fix rounds: \(.rounds)  wall: \(.wall_s)s  claude exit: \(.claude_exit)\n- error: \(.error // "-")"' "$STAGE/status.json"
             jq -r '"- turns: \(.result.num_turns // "?")  deepwiki: \(.tools.deepwiki)  files read: \(.tools.files_read)  tools: \(.tools.by_name | to_entries | map("\(.key)=\(.value)") | join(", "))"' "$STAGE/run.json" 2>/dev/null || echo "- run.json missing"
           } >> "$GITHUB_STEP_SUMMARY"

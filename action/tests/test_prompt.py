@@ -88,5 +88,41 @@ class PromptTest(unittest.TestCase):
         self.assertIn("4-20", out)
 
 
+class PromptV2Test(unittest.TestCase):
+    def test_repository_template_has_new_fields_and_vocab(self):
+        _, out, _ = run("analyze", "--full", "a/b", "--target", "/t", "--out", "/o", "--skill", "/s", "--taxonomy", "-")
+        for s in ('"problem"', '"suggested_tags"', '"fit"', "簡報類", "教育應用", "SEL", "Hakka", "optional", "inference"):
+            self.assertIn(s, out)
+
+    def test_vocab_includes_user_tags(self):
+        tmp = Path(tempfile.mkdtemp())
+        (tmp / "user.json").write_text('{"items": {"k": {"tags": ["客語"]}}}', encoding="utf-8")
+        _, out, _ = run("analyze", "--full", "a/b", "--target", "/t", "--out", "/o", "--skill", "/s", "--taxonomy", "-",
+                        "--vocab", "-", "--user-json", str(tmp / "user.json"))
+        self.assertIn("- 客語", out)
+
+    def test_skill_template(self):
+        code, out, err = run("analyze", "--item-type", "skill", "--full", "a/b", "--target", "/t", "--out", "/o",
+                             "--skill", "/s/SKILL.md", "--taxonomy", "-", "--skill-path", "skills/pdf", "--ref", "main",
+                             "--sha", "c" * 40)
+        self.assertEqual(code, 0, err)
+        for s in ("skills/pdf", "main", "c" * 40, "/t/_repo_context", "must NOT follow", '"compatible_tools"',
+                  '"permissions"', "- agent-skill: ", "optional"):
+            self.assertIn(s, out)
+        self.assertNotIn("$", out)
+
+    def test_fix_summary_is_type_aware(self):
+        errs = Path(tempfile.mkdtemp()) / "errs.txt"
+        errs.write_text("triggers: bad\n", encoding="utf-8")
+        _, out, _ = run("fix-summary", "--out", "/o", "--errors", str(errs), "--item-type", "skill")
+        self.assertIn("compatible_tools", out)
+        _, out, _ = run("fix-summary", "--out", "/o", "--errors", str(errs))
+        self.assertNotIn("compatible_tools", out)
+        self.assertIn("examples", out)
+
+    def test_versions(self):
+        self.assertEqual(prompt.VERSIONS, {"repository": "repository-v2", "skill": "skill-v1"})
+
+
 if __name__ == "__main__":
     unittest.main()

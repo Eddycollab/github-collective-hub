@@ -1,18 +1,22 @@
-/* Shared design tokens for the capture page (index.html) and the reading page (read.html). */
+/* Shared design tokens for the collection page (index.html) and the detail page (read.html).
+   Soft green; upstream token names are kept so both pages share one vocabulary. */
 :root {
-  --paper: #f4f7fb; --grid: #dbe4f1; --grid-major: #c3d1e6;
-  --ink: #16233f; --mute: #5b6b85; --line: #16233f;
-  --cyan: #1f4fc4; --cyan-ink: #ffffff; --err: #c0392b; --field: #ffffffcc;
-  --sheet: #ffffff; --rule: #c3d1e6; --on-ink: #ffffff; --link: #1f4fc4;
-  --sans: system-ui, -apple-system, "Noto Sans TC", "PingFang TC", sans-serif;
-  --mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, monospace;
+  --paper: #f2f6f1; --grid: #e3ece1; --grid-major: #d3e0d1;
+  --ink: #1d2b22; --mute: #5d7064; --line: #c9d8c8;
+  --cyan: #2f7a4d; --cyan-ink: #ffffff; --err: #b0412e; --warn: #8a6410; --field: #ffffff;
+  --sheet: #ffffff; --rule: #dbe6d9; --on-ink: #ffffff; --link: #2b6f46;
+  --accent-soft: #e2f0e4; --accent-softer: #f0f7f0; --shadow: 0 1px 2px #1d2b2210, 0 4px 14px #1d2b2210;
+  --sans: system-ui, -apple-system, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
   --gutter: max(16px, env(safe-area-inset-left));
+  --radius: 14px;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #0e2f6b; --grid: #1a3f80; --grid-major: #24508f;
-    --ink: #eaf1ff; --mute: #a9bee3; --line: #cfdcf5;
-    --cyan: #eaf1ff; --cyan-ink: #0e2f6b; --err: #ffab9e; --field: #0b2758cc;
-    --sheet: #0b2758; --rule: #2a5598; --on-ink: #0e2f6b; --link: #9cc2ff;
+    --paper: #111914; --grid: #1a241d; --grid-major: #223027;
+    --ink: #e5eee7; --mute: #9fb4a6; --line: #2e3f33;
+    --cyan: #86d3a5; --cyan-ink: #0e1a12; --err: #ff9f8c; --warn: #f0c46a; --field: #18221b;
+    --sheet: #18221b; --rule: #26352b; --on-ink: #0e1a12; --link: #8fd9ad;
+    --accent-soft: #1f3327; --accent-softer: #19271e; --shadow: 0 1px 2px #0006, 0 4px 14px #0004;
   }
 }

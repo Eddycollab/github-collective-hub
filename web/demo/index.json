@@ -1,0 +1,255 @@
+{
+  "schema_version": 2,
+  "demo": true,
+  "generated_at": "2026-10-23T09:31:00+08:00",
+  "count": 5,
+  "categories": [],
+  "tag_vocabulary": [
+    {
+      "name": "簡報類",
+      "definition": "製作、生成、轉換或展示簡報與投影片"
+    },
+    {
+      "name": "程式類",
+      "definition": "寫程式、開發流程、程式碼品質與開發者工具"
+    },
+    {
+      "name": "語音類",
+      "definition": "語音辨識、語音合成、錄音與逐字稿"
+    },
+    {
+      "name": "AI 工具",
+      "definition": "以 AI 模型為核心的工具、agent 與工作流程"
+    },
+    {
+      "name": "設計資源",
+      "definition": "視覺設計、UI、圖示、字型與設計系統"
+    },
+    {
+      "name": "教育應用",
+      "definition": "教學、學習、課程與教育平台"
+    }
+  ],
+  "entries": [
+    {
+      "schema_version": 2,
+      "id": "collective-demo__agent-skills--skill--skills-meeting-notes-4583b2",
+      "key": "skill:collective-demo/agent-skills:skills/meeting-notes",
+      "item_type": "skill",
+      "repo": "collective-demo/agent-skills",
+      "repo_id": 0,
+      "url": "",
+      "description": "",
+      "tagline": "逐字稿整理成會議紀錄",
+      "intro": "（示範資料）同一個 repo 裡的第二個 skill，展示一個 repo 內多個 SKILL.md 可以分別收藏。",
+      "problem": "示範：會議逐字稿太長不好讀。",
+      "requirements": [
+        "需要準備：示範資料"
+      ],
+      "language": null,
+      "stars": null,
+      "license": null,
+      "category": "agent-skill",
+      "tags": [],
+      "stack": [],
+      "suggested_tags": [
+        "語音類"
+      ],
+      "capture_tags": [
+        "語音類"
+      ],
+      "skill_name": "meeting-notes",
+      "skill_path": "skills/meeting-notes",
+      "ref": "main",
+      "commit_sha": null,
+      "sources": [
+        "voice"
+      ],
+      "analyzed_at": "2026-10-23T09:31:00+08:00",
+      "first_seen": "2026-10-23T09:31:00+08:00",
+      "last_seen": "2026-10-23T09:31:00+08:00",
+      "updated_at": "2026-10-23T09:31:00+08:00",
+      "analysis_version": "demo",
+      "sightings_n": 1,
+      "md": "library/collective-demo__agent-skills--skill--skills-meeting-notes-4583b2.md"
+    },
+    {
+      "schema_version": 2,
+      "id": "collective-demo__agent-skills--skill--skills-pptx-builder-11b8ae",
+      "key": "skill:collective-demo/agent-skills:skills/pptx-builder",
+      "item_type": "skill",
+      "repo": "collective-demo/agent-skills",
+      "repo_id": 0,
+      "url": "",
+      "description": "",
+      "tagline": "讓 agent 幫你做 PowerPoint",
+      "intro": "（示範資料）虛構的 skill 範例，展示 Skills 專區如何呈現名稱、觸發情境與相容性。",
+      "problem": "示範：需要固定格式的簡報時，agent 不知道版型規則。",
+      "requirements": [
+        "需要準備：示範資料"
+      ],
+      "language": null,
+      "stars": null,
+      "license": "MIT",
+      "category": "agent-skill",
+      "tags": [],
+      "stack": [],
+      "suggested_tags": [
+        "簡報類",
+        "程式類"
+      ],
+      "capture_tags": [],
+      "skill_name": "pptx-builder",
+      "skill_path": "skills/pptx-builder",
+      "ref": "main",
+      "commit_sha": null,
+      "sources": [
+        "github"
+      ],
+      "analyzed_at": "2026-10-23T09:30:00+08:00",
+      "first_seen": "2026-10-23T09:30:00+08:00",
+      "last_seen": "2026-10-23T09:30:00+08:00",
+      "updated_at": "2026-10-23T09:30:00+08:00",
+      "analysis_version": "demo",
+      "sightings_n": 1,
+      "md": "library/collective-demo__agent-skills--skill--skills-pptx-builder-11b8ae.md"
+    },
+    {
+      "schema_version": 2,
+      "id": "collective-demo__slide-forge",
+      "key": "repository:collective-demo/slide-forge",
+      "item_type": "repository",
+      "repo": "collective-demo/slide-forge",
+      "repo_id": 0,
+      "url": "",
+      "description": "",
+      "tagline": "把大綱一鍵變成簡報",
+      "intro": "（示範資料）這是一個虛構的範例專案，用來展示收藏卡片的樣子：貼上文字大綱，它會產生一份投影片檔案。",
+      "problem": "示範：手動把文字排成投影片很花時間。",
+      "requirements": [
+        "平台：網頁",
+        "費用：示範資料，無實際費用資訊"
+      ],
+      "language": null,
+      "stars": null,
+      "license": null,
+      "category": "frontend",
+      "tags": [],
+      "stack": [
+        "TypeScript"
+      ],
+      "suggested_tags": [
+        "簡報類",
+        "AI 工具"
+      ],
+      "capture_tags": [
+        "簡報類"
+      ],
+      "skill_name": null,
+      "skill_path": null,
+      "ref": null,
+      "commit_sha": null,
+      "sources": [
+        "threads"
+      ],
+      "analyzed_at": "2026-10-22T21:10:00+08:00",
+      "first_seen": "2026-10-22T21:10:00+08:00",
+      "last_seen": "2026-10-22T21:10:00+08:00",
+      "updated_at": "2026-10-22T21:10:00+08:00",
+      "analysis_version": "demo",
+      "sightings_n": 1,
+      "md": "library/collective-demo__slide-forge.md",
+      "svg": "library/collective-demo__slide-forge.svg"
+    },
+    {
+      "schema_version": 2,
+      "id": "collective-demo__hakka-tts",
+      "key": "repository:collective-demo/hakka-tts",
+      "item_type": "repository",
+      "repo": "collective-demo/hakka-tts",
+      "repo_id": 0,
+      "url": "",
+      "description": "",
+      "tagline": "客語文字轉語音示範",
+      "intro": "（示範資料）虛構的語音專案，用來展示「使用中」狀態與語音類標籤。",
+      "problem": "示範：缺少客語語音素材。",
+      "requirements": [
+        "平台：Linux",
+        "需要準備：示範資料"
+      ],
+      "language": null,
+      "stars": null,
+      "license": null,
+      "category": "model-inference",
+      "tags": [],
+      "stack": [
+        "Python"
+      ],
+      "suggested_tags": [
+        "語音類",
+        "教育應用"
+      ],
+      "capture_tags": [
+        "語音類"
+      ],
+      "skill_name": null,
+      "skill_path": null,
+      "ref": null,
+      "commit_sha": null,
+      "sources": [
+        "friend"
+      ],
+      "analyzed_at": "2026-10-20T15:00:00+08:00",
+      "first_seen": "2026-10-20T15:00:00+08:00",
+      "last_seen": "2026-10-20T15:00:00+08:00",
+      "updated_at": "2026-10-20T15:00:00+08:00",
+      "analysis_version": "demo",
+      "sightings_n": 1,
+      "md": "library/collective-demo__hakka-tts.md"
+    },
+    {
+      "schema_version": 2,
+      "id": "collective-demo__classroom-kit",
+      "key": "repository:collective-demo/classroom-kit",
+      "item_type": "repository",
+      "repo": "collective-demo/classroom-kit",
+      "repo_id": 0,
+      "url": "",
+      "description": "",
+      "tagline": "課堂互動小工具合集",
+      "intro": "（示範資料）虛構的教育專案，用來展示封存後的樣子。",
+      "problem": "示範：課堂互動工具分散。",
+      "requirements": [
+        "不需安裝"
+      ],
+      "language": null,
+      "stars": null,
+      "license": null,
+      "category": "other",
+      "tags": [],
+      "stack": [
+        "HTML"
+      ],
+      "suggested_tags": [
+        "教育應用"
+      ],
+      "capture_tags": [
+        "教育應用"
+      ],
+      "skill_name": null,
+      "skill_path": null,
+      "ref": null,
+      "commit_sha": null,
+      "sources": [
+        "other"
+      ],
+      "analyzed_at": "2026-10-10T10:00:00+08:00",
+      "first_seen": "2026-10-10T10:00:00+08:00",
+      "last_seen": "2026-10-10T10:00:00+08:00",
+      "updated_at": "2026-10-10T10:00:00+08:00",
+      "analysis_version": "demo",
+      "sightings_n": 1,
+      "md": "library/collective-demo__classroom-kit.md"
+    }
+  ]
+}

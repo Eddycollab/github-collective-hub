@@ -1,0 +1,13 @@
+tags:
+- name: 簡報類
+  definition: 製作、生成、轉換或展示簡報與投影片
+- name: 程式類
+  definition: 寫程式、開發流程、程式碼品質與開發者工具
+- name: 語音類
+  definition: 語音辨識、語音合成、錄音與逐字稿
+- name: AI 工具
+  definition: 以 AI 模型為核心的工具、agent 與工作流程
+- name: 設計資源
+  definition: 視覺設計、UI、圖示、字型與設計系統
+- name: 教育應用
+  definition: 教學、學習、課程與教育平台

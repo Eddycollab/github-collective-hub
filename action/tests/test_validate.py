@@ -128,6 +128,40 @@ class SvgTest(unittest.TestCase):
         frag = '<rect x="0" y="0" width="1" height="1" fill="none" stroke="#1a1a1a"/><circle cx="1" cy="1" r="1" fill="#FAF8F4"/>'
         self.assertEqual(validate.validate_svg(svg_with(frag)), [])
 
+class SummaryV2Test(unittest.TestCase):
+    def skill(self, **changes):
+        from helpers import SKILL_ANALYSIS
+        d = dict(SKILL_ANALYSIS)
+        d.update(changes)
+        return validate.validate_summary(json.dumps(d, ensure_ascii=False), CATS, "skill")
+
+    def test_skill_ok_and_repo_shape_rejected_for_skill(self):
+        self.assertEqual(self.skill(), [])
+        self.assertTrue(validate.validate_summary(json.dumps(OK, ensure_ascii=False), CATS, "skill"))
+        self.assertTrue(self.skill(examples=["多出來的例子欄位不屬於 skill。"]))
+        self.assertTrue(validate.validate_summary("{}", CATS, "gist"))
+
+    def test_skill_optional_lists_may_be_empty(self):
+        self.assertEqual(self.skill(inputs=[], outputs=[], compatible_tools=[], dependencies=[], permissions=[],
+                                    install=[], stack=[], highlights=["只有一點值得借鏡的地方。"]), [])
+
+    def test_skill_field_rules(self):
+        for bad in (dict(triggers=[]), dict(compatible_tools=["VS Code"]), dict(compatible_tools=["Codex", "Codex"]),
+                    dict(dependencies=["x"]), dict(install=["步" * 161]), dict(inputs=["only english"]),
+                    dict(permissions=["a"] * 7)):
+            with self.subTest(bad=bad):
+                self.assertTrue(self.skill(**bad))
+
+    def test_inferred_fields(self):
+        self.assertTrue(validate.validate_summary(summary_with(suggested_tags=["不在字彙"]), CATS))
+        self.assertEqual(validate.validate_summary(summary_with(suggested_tags=["客語"]), CATS, vocab=["客語"]), [])
+        self.assertTrue(validate.validate_summary(summary_with(suggested_tags=["程式類", "程式類"]), CATS))
+        self.assertTrue(validate.validate_summary(summary_with(suggested_tags=["簡報類", "程式類", "語音類", "AI 工具", "教育應用"]), CATS))
+        self.assertTrue(validate.validate_summary(summary_with(fit=[]), CATS))
+        self.assertTrue(validate.validate_summary(summary_with(fit=["english only fit sentence"]), CATS))
+        self.assertTrue(validate.validate_summary(summary_with(problem="短"), CATS))
+
+
 class CliTest(unittest.TestCase):
     def test_summary_cli_survives_malformed_taxonomy(self):
         import subprocess, sys, tempfile

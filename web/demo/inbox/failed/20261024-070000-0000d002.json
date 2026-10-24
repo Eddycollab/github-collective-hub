@@ -1,0 +1,25 @@
+{
+  "error": "示範：resolve: Not Found（repo 不存在或不是公開的）",
+  "failed_at": "2026-10-24T07:00:00+00:00",
+  "capture": {
+    "v": 2,
+    "item_type": "repository",
+    "url": "https://github.com/collective-demo/missing-repo",
+    "target": {
+      "repo": "collective-demo/missing-repo",
+      "ref": null,
+      "path": null
+    },
+    "source_url": "",
+    "captured_at": "2026-10-24T06:30:00+08:00",
+    "source": "threads",
+    "post_url": "",
+    "share_text": "示範：分析失敗的收藏",
+    "transcript": "",
+    "note": "",
+    "tags": [],
+    "reanalyze": false,
+    "client": "demo"
+  },
+  "raw": null
+}

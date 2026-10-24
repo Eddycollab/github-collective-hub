@@ -1,6 +1,7 @@
 """Validators for model output: summary.json schema and an SVG element/attribute allowlist.
 
-CLI: validate.py summary <file> [--taxonomy <yml>] | validate.py svg <file>
+CLI: validate.py summary <file> [--taxonomy <yml>] [--item-type T] [--vocab <tags.yml>] [--user-json <file>]
+     validate.py svg <file>
 Exit 0 with no output when valid; otherwise one error per line and exit 1.
 """
 from __future__ import annotations
@@ -12,12 +13,18 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+import tags
 import taxonomy
 
 CJK = re.compile(r"[一-鿿]")
 TAG_RE = re.compile(r"^[a-z0-9][a-z0-9.+-]{0,39}$")
 STACK_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 .+#/-]{0,29}$")
-SUMMARY_KEYS = {"tagline", "intro", "examples", "requirements", "summary", "category", "tags", "stack", "highlights"}
+COMMON_KEYS = {"tagline", "intro", "problem", "requirements", "summary", "category", "tags", "stack", "highlights",
+               "suggested_tags", "fit"}
+SUMMARY_KEYS = {"repository": COMMON_KEYS | {"examples"},
+                "skill": COMMON_KEYS | {"triggers", "inputs", "outputs", "compatible_tools", "dependencies",
+                                        "permissions", "install"}}
+TOOLS = ("Claude Code", "Claude.ai", "Claude API", "Codex", "其他")
 SVG_MAX_BYTES = 2 * 1024 * 1024
 
 # Everything arch-blueprint's example and icon library use, plus a few harmless shape/text
@@ -46,47 +53,72 @@ STRICT = {
 CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
 
-def validate_summary(text: str, categories: list[str]) -> list[str]:
+def _text(v, lo: int, hi: int, cjk: bool = True) -> bool:
+    return isinstance(v, str) and lo <= len(v) <= hi and (not cjk or bool(CJK.search(v)))
+
+
+def _lines(v, n_lo: int, n_hi: int, lo: int, hi: int, cjk: bool = True) -> bool:
+    return isinstance(v, list) and n_lo <= len(v) <= n_hi and all(_text(x, lo, hi, cjk) for x in v)
+
+
+def validate_summary(text: str, categories: list[str], item_type: str = "repository",
+                     vocab: list[str] | None = None) -> list[str]:
     try:
         data = json.loads(text)
     except ValueError as e:
         return [f"not a single JSON value: {e}"]
     if not isinstance(data, dict):
         return ["top level must be an object"]
+    keys = SUMMARY_KEYS.get(item_type)
+    if keys is None:
+        return [f"unknown item_type {item_type!r}"]
+    skill = item_type == "skill"
+    vocab = tags.names(tags.DEFAULT) if vocab is None else vocab
     errors = []
-    if set(data) != SUMMARY_KEYS:
-        errors.append(f"keys must be exactly {sorted(SUMMARY_KEYS)}, got {sorted(data)}")
-    tagline = data.get("tagline")
-    if not (isinstance(tagline, str) and 4 <= len(tagline) <= 20 and CJK.search(tagline)):
+    if set(data) != keys:
+        errors.append(f"keys must be exactly {sorted(keys)}, got {sorted(data)}")
+    if not _text(data.get("tagline"), 4, 20):
         errors.append("tagline: 4-20 chars of plain Traditional Chinese")
-    intro = data.get("intro")
-    if not (isinstance(intro, str) and 30 <= len(intro) <= 300 and CJK.search(intro)):
+    if not _text(data.get("intro"), 30, 300):
         errors.append("intro: 30-300 chars of plain Traditional Chinese")
-    ex = data.get("examples")
-    if not (isinstance(ex, list) and 1 <= len(ex) <= 2
-            and all(isinstance(e, str) and 10 <= len(e) <= 120 and CJK.search(e) for e in ex)):
+    if not _text(data.get("problem"), 10, 200):
+        errors.append("problem: 10-200 chars of Traditional Chinese")
+    if not skill and not _lines(data.get("examples"), 1, 2, 10, 120):
         errors.append("examples: 1-2 Chinese sentences of 10-120 chars")
-    req = data.get("requirements")
-    if not (isinstance(req, list) and 1 <= len(req) <= 4
-            and all(isinstance(r, str) and 2 <= len(r) <= 100 and CJK.search(r) for r in req)):
+    if not _lines(data.get("requirements"), 1, 4, 2, 100):
         errors.append("requirements: 1-4 Chinese lines of 2-100 chars")
-    summary = data.get("summary")
-    if not (isinstance(summary, str) and 20 <= len(summary) <= 600 and CJK.search(summary)):
+    if not _text(data.get("summary"), 20, 600):
         errors.append("summary: 20-600 chars with Traditional Chinese text")
     if data.get("category") not in categories:
         errors.append(f"category: must be one of {categories}")
-    tags = data.get("tags")
-    if not (isinstance(tags, list) and len(tags) <= 5
-            and all(isinstance(t, str) and TAG_RE.match(t) for t in tags)):
+    tg = data.get("tags")
+    if not (isinstance(tg, list) and len(tg) <= 5 and all(isinstance(t, str) and TAG_RE.match(t) for t in tg)):
         errors.append("tags: at most 5 lowercase tags")
     stack = data.get("stack")
-    if not (isinstance(stack, list) and 1 <= len(stack) <= 8
+    if not (isinstance(stack, list) and (0 if skill else 1) <= len(stack) <= 8
             and all(isinstance(s, str) and STACK_RE.match(s) for s in stack)):
-        errors.append("stack: 1-8 short names")
-    hl = data.get("highlights")
-    if not (isinstance(hl, list) and 2 <= len(hl) <= 3
-            and all(isinstance(h, str) and 10 <= len(h) <= 120 and CJK.search(h) for h in hl)):
-        errors.append("highlights: 2-3 Chinese sentences of 10-120 chars")
+        errors.append(f"stack: {'0' if skill else '1'}-8 short names")
+    if not _lines(data.get("highlights"), 1 if skill else 2, 3, 10, 120):
+        errors.append(f"highlights: {'1' if skill else '2'}-3 Chinese sentences of 10-120 chars")
+    st = data.get("suggested_tags")
+    if not (isinstance(st, list) and len(st) <= 4 and len(set(map(str, st))) == len(st) and all(t in vocab for t in st)):
+        errors.append(f"suggested_tags: 0-4 distinct tags from {vocab}")
+    if not _lines(data.get("fit"), 1, 3, 10, 150):
+        errors.append("fit: 1-3 Chinese sentences of 10-150 chars")
+    if skill:
+        if not _lines(data.get("triggers"), 1, 4, 4, 120):
+            errors.append("triggers: 1-4 Chinese items of 4-120 chars")
+        for k in ("inputs", "outputs"):
+            if not _lines(data.get(k), 0, 4, 2, 100):
+                errors.append(f"{k}: 0-4 Chinese items of 2-100 chars")
+        ct = data.get("compatible_tools")
+        if not (isinstance(ct, list) and len(ct) <= 4 and len(set(map(str, ct))) == len(ct) and all(t in TOOLS for t in ct)):
+            errors.append(f"compatible_tools: 0-4 distinct values from {list(TOOLS)}")
+        for k in ("dependencies", "permissions"):
+            if not _lines(data.get(k), 0, 6, 2, 100, cjk=False):
+                errors.append(f"{k}: 0-6 items of 2-100 chars")
+        if not _lines(data.get("install"), 0, 4, 2, 160, cjk=False):
+            errors.append("install: 0-4 items of 2-160 chars")
     return errors
 
 
@@ -134,6 +166,9 @@ def main(argv: list[str]) -> int:
     ap.add_argument("kind", choices=["summary", "svg"])
     ap.add_argument("file", type=Path)
     ap.add_argument("--taxonomy", type=Path)
+    ap.add_argument("--item-type", choices=sorted(SUMMARY_KEYS), default="repository")
+    ap.add_argument("--vocab", type=Path)
+    ap.add_argument("--user-json", type=Path)
     args = ap.parse_args(argv)
     try:
         text = args.file.read_text(encoding="utf-8")
@@ -141,7 +176,8 @@ def main(argv: list[str]) -> int:
         print(f"cannot read {args.file}: {e}")
         return 1
     if args.kind == "summary":
-        errors = validate_summary(text, taxonomy.names(taxonomy.load_or_default(args.taxonomy)))
+        vocab = tags.names(tags.vocabulary(args.vocab, args.user_json))
+        errors = validate_summary(text, taxonomy.names(taxonomy.load_or_default(args.taxonomy)), args.item_type, vocab)
     else:
         errors = validate_svg(text)
     for e in errors:

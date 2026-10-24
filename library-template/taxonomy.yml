@@ -1,0 +1,23 @@
+categories:
+- name: agent-framework
+  definition: 建構或執行 AI agent 的框架、runtime 與 SDK
+- name: mcp-server
+  definition: 提供 MCP 工具或資源給 agent 呼叫的伺服器
+- name: dev-tool
+  definition: 開發者日常使用的 CLI、編輯器擴充、程式碼品質與工作流工具
+- name: model-inference
+  definition: 模型推論、部署、量化、微調與評測
+- name: data-processing
+  definition: 資料擷取、轉換、檢索、RAG 與向量資料處理
+- name: frontend
+  definition: 網頁或桌面介面、UI 元件與前端應用
+- name: infrastructure
+  definition: 部署、雲端、資料庫、監控與維運基礎設施
+- name: agent-skill
+  definition: 給 AI agent 載入的技能包（SKILL.md）與其輔助檔
+- name: game
+  definition: 遊戲、遊戲引擎、遊戲 mod 與相關工具
+- name: desktop-app
+  definition: 給一般使用者用的桌面或手機應用程式
+- name: other
+  definition: 不屬於以上分類的專案

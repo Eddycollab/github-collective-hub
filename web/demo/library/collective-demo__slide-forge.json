@@ -1,0 +1,77 @@
+{
+  "schema_version": 2,
+  "description": "",
+  "language": null,
+  "stars": null,
+  "stars_at": null,
+  "url": "",
+  "category": "frontend",
+  "tags": [],
+  "stack": [
+    "TypeScript"
+  ],
+  "examples": [
+    "示範：貼上課程大綱，得到一份 10 頁的投影片。"
+  ],
+  "highlights": [
+    "示範：值得借鏡的設計會列在這裡。",
+    "示範：第二點借鏡。"
+  ],
+  "suggested_tags": [
+    "簡報類",
+    "AI 工具"
+  ],
+  "fit": [
+    "（推論示範）可以用在教育平台的教材快速產出。"
+  ],
+  "capture_tags": [
+    "簡報類"
+  ],
+  "item_type": "repository",
+  "repo": "collective-demo/slide-forge",
+  "tagline": "把大綱一鍵變成簡報",
+  "intro": "（示範資料）這是一個虛構的範例專案，用來展示收藏卡片的樣子：貼上文字大綱，它會產生一份投影片檔案。",
+  "problem": "示範：手動把文字排成投影片很花時間。",
+  "requirements": [
+    "平台：網頁",
+    "費用：示範資料，無實際費用資訊"
+  ],
+  "summary": "（示範資料）示範用的技術摘要，不對應任何真實程式碼。",
+  "id": "collective-demo__slide-forge",
+  "key": "repository:collective-demo/slide-forge",
+  "repo_id": 0,
+  "target": {
+    "repo": "collective-demo/slide-forge",
+    "ref": null,
+    "path": null
+  },
+  "resolved": null,
+  "skill": null,
+  "sightings": [
+    {
+      "id": "demo-collective-demo__slide-forge",
+      "at": "2026-10-22T21:10:00+08:00",
+      "source": "threads",
+      "note": "",
+      "post_url": "",
+      "share_text": "看到這個工具 https://github.com/collective-demo/slide-forge 做簡報超快",
+      "transcript": "",
+      "source_url": "",
+      "tags": [
+        "簡報類"
+      ]
+    }
+  ],
+  "created_at": "2026-10-22T21:10:00+08:00",
+  "updated_at": "2026-10-22T21:10:00+08:00",
+  "analyzed_at": "2026-10-22T21:10:00+08:00",
+  "analysis": {
+    "version": "demo",
+    "status": "succeeded",
+    "model": null,
+    "turns": null,
+    "wall_s": 0,
+    "rounds": 0,
+    "diagram": true
+  }
+}

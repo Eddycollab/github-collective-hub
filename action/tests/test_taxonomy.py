@@ -10,10 +10,10 @@ class TaxonomyTest(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
 
-    def test_default_has_eight_names_in_order(self):
+    def test_default_has_nine_names_in_order(self):
         self.assertEqual(taxonomy.names(taxonomy.DEFAULT), [
             "agent-framework", "mcp-server", "dev-tool", "model-inference",
-            "data-processing", "frontend", "infrastructure", "other",
+            "data-processing", "frontend", "infrastructure", "agent-skill", "other",
         ])
         for c in taxonomy.DEFAULT:
             self.assertTrue(c["definition"])
@@ -46,7 +46,7 @@ class TaxonomyTest(unittest.TestCase):
     def test_render_for_prompt(self):
         text = taxonomy.render_for_prompt(taxonomy.DEFAULT)
         self.assertIn("- mcp-server: ", text)
-        self.assertEqual(len(text.splitlines()), 8)
+        self.assertEqual(len(text.splitlines()), 9)
 
     def test_load_syntax_error_raises_value_error(self):
         p = self.tmp / "taxonomy.yml"
