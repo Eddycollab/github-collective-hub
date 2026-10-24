@@ -325,13 +325,22 @@
 
   <dialog id="drawer" aria-labelledby="drawer-title">
     <h2 id="drawer-title">連結收藏庫</h2>
-    <p class="help">只需要設定一次。token 只存在這個瀏覽器，只會送到 GitHub（api.github.com），不會出現在網址或紀錄裡。</p>
+    <p id="drawer-help" class="help">只需要設定一次。token 只存在這個瀏覽器，只會送到 GitHub（api.github.com），不會出現在網址或紀錄裡。</p>
+    <section id="account" hidden>
+      <p id="account-who" class="help"></p>
+      <div class="actions">
+        <a id="signin" class="btn primary" href="/auth/login">使用 GitHub 登入</a>
+        <button id="signout" class="btn" type="button" hidden>登出</button>
+      </div>
+    </section>
     <form id="settings" autocomplete="off">
+      <div id="token-fields">
       <label for="repo">私人收藏庫（帳號/repo 名稱）</label>
       <input id="repo" placeholder="your-name/collective-library" autocapitalize="off">
       <label for="token">Fine-grained token</label>
       <input id="token" type="password" placeholder="github_pat_…">
       <p class="help">只選你的私人收藏庫，權限 Contents: Read and write。想看到「分析中」，可再加 Actions: Read-only（選用）。</p>
+      </div>
       <div id="dev-api-row" hidden>
         <label for="dev-api">本機模擬 API（只在 localhost 生效）</label>
         <input id="dev-api" placeholder="http://127.0.0.1:8787">
@@ -340,7 +349,7 @@
       <div class="actions">
         <button id="drawer-demo" class="btn" type="button">以示範資料瀏覽</button>
         <button id="drawer-close" class="btn" type="button" autofocus>關閉</button>
-        <button class="btn primary" type="submit">儲存</button>
+        <button id="save" class="btn primary" type="submit">儲存</button>
       </div>
     </form>
     <section class="desk" aria-label="電腦書籤">

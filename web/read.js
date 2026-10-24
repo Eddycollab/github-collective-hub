@@ -2,10 +2,10 @@
 
 import { prepareSvg, rejectedNotice, wire, draft, mountLightbox } from './lib/diagram.mjs';
 import { parseStem, stemOf, ghRaw, loadIndex, loadUser, saveUser, loadInbox, writeCapture, requeueFailed, removeEntry, specRows,
-  categoryLabel, useTransport, errorText, isoLocal, STATE_TEXT } from './lib/library.mjs';
+  categoryLabel, useTransport, useServerText, errorText, isoLocal, STATE_TEXT } from './lib/library.mjs';
 import { patchUser, userItem, captureTarget, jobState, makeCapture, cleanTag, tagVocabulary, buildItems, ITEM_TYPE_LABEL, USER_STATUS, SOURCE_LABEL } from './lib/collection.mjs';
 import { repoKey, skillKey, skillUrl } from './lib/github-url.mjs';
-import { loadCfg, isDemo, addHistory, DEMO_REPO } from './lib/config.mjs';
+import { loadCfg, isDemo, hasAccess, probeServer, setServer, addHistory, DEMO_REPO } from './lib/config.mjs';
 import { demoTransport } from './lib/demo.mjs';
 
 const $ = (id) => document.getElementById(id);
@@ -402,7 +402,7 @@ async function load() {
   const stem = parseStem(location.hash);
   if (!stem) { showMessage('找不到這筆收藏。'); return; }
   const cfg = libCfg();
-  if (!cfg || (!isDemo(cfg) && (!cfg.repo || !cfg.token))) { showMessage('先到收藏頁連結收藏庫。'); return; }
+  if (!cfg || (!isDemo(cfg) && !hasAccess(cfg))) { showMessage(cfg && cfg.server ? '請先到收藏頁用 GitHub 登入。' : '先到收藏頁連結收藏庫。'); return; }
   const [side, svgRes, idx, user] = await Promise.all([
     ghRaw(cfg, `library/${stem}.json`), ghRaw(cfg, `library/${stem}.svg`), loadIndex(cfg), loadUser(cfg),
   ]);
@@ -430,5 +430,10 @@ async function load() {
   showMessage(STATE_TEXT.unavailable);
 }
 
-addEventListener('hashchange', load);
-load();
+// Server mode (server/app.mjs) is detected once; a static page keeps using the token in storage.
+probeServer().then((info) => {
+  setServer(info);
+  useServerText(Boolean(info));
+  addEventListener('hashchange', load);
+  load();
+});

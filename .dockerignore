@@ -1,0 +1,12 @@
+.git
+.github
+.preview
+.env
+.env.*
+action
+docs
+library-template
+scripts
+server/tests
+web/tests
+node_modules

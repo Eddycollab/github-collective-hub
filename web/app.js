@@ -1,11 +1,12 @@
 'use strict';
 
 import { loadIndex, loadUser, saveUser, loadInbox, writeCapture, requeueFailed, deleteFile, listMatchingRefs, findSkills, actionsRunning,
-  useTransport, apiBase, errorText, categoryLabel, isoLocal, STATE_TEXT } from './lib/library.mjs';
+  useTransport, useServerText, apiBase, errorText, categoryLabel, isoLocal, STATE_TEXT } from './lib/library.mjs';
 import { buildItems, filterItems, sortItems, viewCounts, tagCounts, tagVocabulary, markDuplicates, patchUser, makeCapture, exportBackup,
   planImport, cleanTag, ITEM_TYPE_LABEL, USER_STATUS, VIEWS, SOURCE_LABEL } from './lib/collection.mjs';
 import { extractTargets, resolveRef, chooseSplit, skillDirs, keyOf } from './lib/github-url.mjs';
-import { loadCfg, saveCfg, isDemo, connected, addHistory, historyFor, loadHistory, saveHistory, DEMO_REPO } from './lib/config.mjs';
+import { loadCfg, saveCfg, isDemo, connected, hasAccess, probeServer, setServer, serverInfo, addHistory, historyFor, loadHistory, saveHistory,
+  DEMO_REPO } from './lib/config.mjs';
 import { createVoice, recognizerClass, normalizeSpokenLinks, VOICE_TEXT } from './lib/voice.mjs';
 import { demoTransport } from './lib/demo.mjs';
 
@@ -75,6 +76,7 @@ function loadLib() {
     const now = libCfg();
     if (seq !== libSeq || !now || now.repo !== cfg.repo) return;
     Object.assign(lib, { state: idx.state, index: idx.index, reset: idx.reset, user: user.doc, userState: user.state, running: Boolean(running), repo: cfg.repo });
+    if (cfg.server && idx.state === 'auth') await recheckSession();
     if (inbox) { lib.inbox = inbox; syncHistory(cfg, inbox, idx.index); }
     render();
     schedulePoll();
@@ -117,9 +119,9 @@ function render() {
 
 function renderConn() {
   const cfg = loadCfg();
-  const demo = isDemo(cfg), ok = Boolean(cfg && cfg.repo && cfg.token);
+  const demo = isDemo(cfg), ok = hasAccess(cfg);
   $('conn').dataset.ok = demo ? 'demo' : ok ? '1' : '0';
-  $('conn').querySelector('span').textContent = demo ? '示範模式' : ok ? cfg.repo : '尚未連結收藏庫';
+  $('conn').querySelector('span').textContent = demo ? '示範模式' : ok ? cfg.repo : serverInfo() ? '請先用 GitHub 登入' : '尚未連結收藏庫';
   $('library').href = !demo && ok ? `https://github.com/${cfg.repo}` : '#';
   $('library').hidden = demo || !ok;
 }
@@ -130,7 +132,7 @@ function renderBanner(cfg) {
     const exit = el('button', 'linkish', '離開示範模式'); exit.type = 'button'; exit.onclick = () => setDemo(false);
     b.replaceChildren('示範資料：以下是虛構的範例收藏（collective-demo），沒有連到 GitHub，不會寫入、同步或分析。', ' ', exit);
     b.hidden = false;
-  } else if (cfg && apiBase(cfg) !== 'https://api.github.com') {
+  } else if (cfg && !cfg.server && apiBase(cfg) !== 'https://api.github.com') {
     b.textContent = `本機模擬 API（${apiBase(cfg)}）：資料寫在暫存資料夾，不會同步到 GitHub，也沒有 Actions 分析，收藏會停在「等待分析」。`;
     b.hidden = false;
   } else b.hidden = true;
@@ -260,9 +262,9 @@ async function sendCapture(cfg, target, ctx) {
 
 function needsConnection(cfg, retry) {
   if (isDemo(cfg)) { setStatus('示範模式', 'err'); setHint(STATE_TEXT.demo); return true; }
-  if (!cfg || !cfg.repo || !cfg.token) {
-    setStatus('還沒連結', 'err');
-    setHint('先連結收藏庫，連結後按「重試」。');
+  if (!hasAccess(cfg)) {
+    setStatus(serverInfo() ? '還沒登入' : '還沒連結', 'err');
+    setHint(serverInfo() ? '先用 GitHub 登入，登入後按「重試」。' : '先連結收藏庫，連結後按「重試」。');
     addAction('重試', retry, true);
     openDrawer();
     return true;
@@ -363,7 +365,7 @@ function findCandidates() {
 // Online checks for skill links: the real ref when the branch name has slashes, and whether the folder holds SKILL.md.
 async function resolveCandidates() {
   const cfg = libCfg();
-  const online = cfg && cfg.token && !isDemo(cfg);
+  const online = hasAccess(cfg) && !isDemo(cfg);
   for (const c of [...add.cands]) {
     if (c.item_type !== 'skill' || c.checkedRemote) continue;
     c.checkedRemote = true;
@@ -398,7 +400,7 @@ function replaceWithSkills(c, dirs, ref) {
 
 async function listRepoSkills(c) {
   const cfg = libCfg();
-  if (isDemo(cfg) || !cfg || !cfg.token) { addMsg('要列出 repo 裡的 SKILL.md 需要先連結收藏庫；也可以直接貼 SKILL.md 的網址。', 'err'); return; }
+  if (isDemo(cfg) || !hasAccess(cfg)) { addMsg('要列出 repo 裡的 SKILL.md 需要先連結收藏庫；也可以直接貼 SKILL.md 的網址。', 'err'); return; }
   addMsg(`正在列出 ${c.repo} 裡的 SKILL.md…`);
   try {
     const found = await findSkills(cfg, c.repo, null);
@@ -461,7 +463,7 @@ async function submitAdd(e) {
   if (!chosen.length) return;
   const cfg = libCfg();
   if (isDemo(cfg)) { addMsg(STATE_TEXT.demo, 'err'); return; }
-  if (!cfg || !cfg.repo || !cfg.token) { addMsg('請先連結收藏庫（右下角／側欄的「尚未連結收藏庫」）。', 'err'); openDrawer(); return; }
+  if (!hasAccess(cfg)) { addMsg(serverInfo() ? '請先用 GitHub 登入（設定裡的「使用 GitHub 登入」）。' : '請先連結收藏庫（右下角／側欄的「尚未連結收藏庫」）。', 'err'); openDrawer(); return; }
   const ctx = {
     source: $('add-source').value, note: $('add-note').value.trim(), tags: add.tags,
     share_text: add.pane === 'share' ? $('share-text').value : '', post_url: add.pane === 'share' ? $('post-url').value.trim() : '',
@@ -652,6 +654,38 @@ function renderBookmarklet(base, cfg) {
     "window.open(u,'_blank','width=560,height=720')})()";
 }
 
+// --- server mode: GitHub sign-in instead of a token (server/app.mjs)
+
+function renderAccount() {
+  const s = serverInfo();
+  for (const id of ['token-fields', 'save']) $(id).hidden = Boolean(s);
+  $('account').hidden = !s;
+  if (!s) return;
+  $('drawer-title').textContent = '帳號與收藏庫';
+  $('drawer-help').textContent = '收藏庫的存取憑證只放在伺服器，這個瀏覽器只保存登入狀態。';
+  $('account-who').textContent = s.authenticated ? `已用 GitHub 登入：${s.login}　收藏庫：${s.repo}` : '尚未登入。只有網站擁有者的 GitHub 帳號可以登入。';
+  $('signin').hidden = s.authenticated;
+  $('signout').hidden = !s.authenticated;
+}
+
+async function recheckSession() {
+  const info = await probeServer();
+  if (info && !info.authenticated) { setServer(info); renderAccount(); renderConn(); }
+}
+
+async function signOut() {
+  const s = serverInfo();
+  $('signout').disabled = true;
+  try {
+    const r = await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-Token': (s && s.csrf) || '' } });
+    if (!r.ok) throw new Error(String(r.status));
+    location.reload();
+  } catch {
+    $('signout').disabled = false;
+    drawerMessage('登出失敗，請重新整理後再試。', true);
+  }
+}
+
 // --- incoming shares
 
 // Auto-write only when provenance is proven and there is exactly one new repository; everything
@@ -732,8 +766,11 @@ function schedulePoll() {
   pollTimer = setTimeout(() => loadLib(), POLL_MS);
 }
 
-function init() {
+async function init() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  const info = await probeServer();
+  setServer(info);
+  useServerText(Boolean(info));
   applyTransport();
   const prefs = loadPrefs();
   ui.sort = prefs.sort === 'analyzed' ? 'analyzed' : 'captured';
@@ -742,9 +779,13 @@ function init() {
   for (const b of $('layout').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.layout === ui.layout));
 
   let cfg = loadCfg();
-  if (cfg) { $('repo').value = cfg.repo || ''; $('token').value = cfg.token ? '********' : ''; $('dev-api').value = cfg.api || ''; }
+  // The bookmarklet nonce is per device; server mode keeps nothing else in storage.
+  if (info && !(cfg && cfg.nonce)) { saveCfg({ ...(cfg || {}), nonce: randomHex(16) }); cfg = loadCfg(); }
+  if (cfg && !info) { $('repo').value = cfg.repo || ''; $('token').value = cfg.token ? '********' : ''; $('dev-api').value = cfg.api || ''; }
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
-  $('dev-api-row').hidden = !local;
+  $('dev-api-row').hidden = !local || Boolean(info);
+  renderAccount();
+  $('signout').onclick = signOut;
   $('drawer-demo').textContent = isDemo(cfg) ? '離開示範模式' : '以示範資料瀏覽';
   const base = location.origin + location.pathname;
   renderBookmarklet(base, cfg);
@@ -801,6 +842,7 @@ function init() {
 
   $('settings').onsubmit = (e) => {
     e.preventDefault();
+    if (serverInfo()) return;
     const repo = $('repo').value.trim();
     const tokenInput = $('token').value.trim();
     if (!/^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/.test(repo)) { drawerMessage('收藏庫格式應為「帳號/repo 名稱」。', true); return; }

@@ -5,6 +5,8 @@
 
 export const STEM_RE = /^[a-z0-9._-]+__[a-z0-9._-]+$/;
 const GITHUB_API = 'https://api.github.com';
+// Server mode (server/app.mjs): same-origin proxy that adds the library token on the server side.
+export const SERVER_API = '/api/gh';
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 export const CATEGORY_LABEL = { 'agent-framework': 'Agent 框架', 'mcp-server': 'MCP 伺服器', 'dev-tool': '開發工具',
@@ -26,6 +28,19 @@ export const STATE_TEXT = {
   demo: '示範模式不會寫入任何資料。要真正收藏，請到設定連結你的私人收藏庫。',
 };
 
+// Server mode has no token to fix: authentication problems mean signing in again.
+const SERVER_TEXT = {
+  'no-repo': '伺服器連不到收藏庫：請確認伺服器的 LIBRARY_TOKEN 仍有效、且有這個收藏庫的權限。',
+  auth: '登入已過期，請重新用 GitHub 登入。',
+  demo: '示範模式不會寫入任何資料。要真正收藏，請到設定離開示範模式。',
+};
+let serverText = false;
+export function useServerText(on = true) {
+  serverText = on;
+  Object.assign(STATE_TEXT, on ? SERVER_TEXT : TOKEN_TEXT);
+}
+const TOKEN_TEXT = Object.fromEntries(Object.keys(SERVER_TEXT).map((k) => [k, STATE_TEXT[k]]));
+
 // The transport every call goes through by default; demo mode swaps it for read-only fixtures.
 let transport = (...a) => fetch(...a);
 export function useTransport(fn) { transport = fn || ((...a) => fetch(...a)); }
@@ -34,6 +49,7 @@ const send = (...a) => transport(...a);
 // A local mock API is only honoured on a loopback page pointing at a loopback port, so a token
 // can never be sent anywhere but api.github.com from a deployed page.
 export function apiBase(cfg, loc = globalThis.location) {
+  if (cfg && cfg.server) return SERVER_API;
   if (cfg && typeof cfg.api === 'string' && cfg.api && loc && LOOPBACK.has(loc.hostname)) {
     try {
       const u = new URL(cfg.api);
@@ -56,6 +72,7 @@ export function stemOf(mdPath) {
 }
 
 function headers(cfg, accept) {
+  if (cfg.server) return { Accept: accept, 'X-CSRF-Token': cfg.csrf || '' };
   return { Authorization: `Bearer ${cfg.token}`, Accept: accept, 'X-GitHub-Api-Version': '2022-11-28' };
 }
 
@@ -132,8 +149,9 @@ export function errorText(e, action = '操作') {
   if (e.limited) return `${action}失敗：${STATE_TEXT['rate-limit']}${e.reset ? `（約 ${new Date(e.reset).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })} 重設）` : ''}`;
   if (e.status === 'demo') return STATE_TEXT.demo;
   if (e.status === 401) return `${action}失敗：${STATE_TEXT.auth}`;
-  if (e.status === 403) return `${action}失敗：token 沒有這個收藏庫的寫入權限（需要 Contents: Read and write）。`;
-  if (e.status === 404) return `${action}失敗：找不到收藏庫，或 token 沒有它的權限。`;
+  if (e.status === 403) return serverText ? `${action}失敗：伺服器拒絕了這個操作（登入狀態或安全檢查不符），請重新整理後再試。`
+    : `${action}失敗：token 沒有這個收藏庫的寫入權限（需要 Contents: Read and write）。`;
+  if (e.status === 404) return serverText ? `${action}失敗：${SERVER_TEXT['no-repo']}` : `${action}失敗：找不到收藏庫，或 token 沒有它的權限。`;
   if (e.status === 409 || e.status === 422) return `${action}失敗：資料剛被其他裝置或分析流程更新，請重試。`;
   return `${action}失敗（GitHub 回應 ${e.status}），稍後再試。`;
 }

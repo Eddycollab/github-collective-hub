@@ -34,7 +34,7 @@ URL / share text / voice ──► capture page ──► private library inbox/
                   library/*.md|json|svg, index.json ──► capture page (read with your token)
 ```
 
-No server, no database. The page is GitHub Pages; analysis runs in your own Actions.
+No database. The page can live on GitHub Pages (paste a token once per device) or on Railway (sign in with GitHub; the token stays on the server); analysis always runs in your own Actions.
 
 ## Setup
 
@@ -45,6 +45,8 @@ Full steps (Windows local preview, tests, GitHub Pages, private library, secrets
 3. Create a **private** library from `library-template/` and pin the caller workflow's `uses:` to a 40-character commit SHA of your repo.
 4. Library Actions secret: `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`).
 5. On each device, paste a fine-grained token once (library repo only, Contents: Read and write).
+
+**To sign in with GitHub instead of pasting a token on each device**, deploy to Railway: see **[docs/railway.md](docs/railway.md)** (Chinese). One service serves the page, GitHub OAuth sign-in (identity only, one allowed GitHub user id) and the library API; the library token lives only in the server's environment.
 
 ## Privacy and security
 
@@ -58,6 +60,7 @@ Full steps (Windows local preview, tests, GitHub Pages, private library, secrets
 
 - [docs/collective-plan.md](docs/collective-plan.md): inventory, data formats, compatibility and migration
 - [docs/setup.md](docs/setup.md): install, deploy, secrets
+- [docs/railway.md](docs/railway.md): Railway deployment and GitHub sign-in
 - [docs/specs/repobox.md](docs/specs/repobox.md): upstream RepoBox spec (original security decisions)
 
 ## License

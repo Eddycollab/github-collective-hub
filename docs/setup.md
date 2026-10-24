@@ -109,7 +109,11 @@ node web/tests/e2e/read.cjs       # 詳情頁
 
 第一次執行請盯著 Actions 的紀錄；失敗的收藏會留在 `inbox/failed/`，網頁上可以「重新排入」。
 
-## 7. 手機
+## 7. 改用 GitHub 登入（Railway，選用）
+
+不想在每台裝置貼 token，可以把同一份程式部署到 Railway：用 GitHub 登入，token 只放在伺服器。步驟見 [railway.md](railway.md)。GitHub Pages 版可以繼續使用。
+
+## 8. 手機
 
 - **Android**：用 Chrome 打開網頁 → 選單 → 加到主畫面。之後在 Threads 按分享 → 選 Collective，就會帶入網址（只有一個新 repo 時自動收藏，其他情況要你確認）。
 - **iPhone／iPad**：iOS 不支援網頁加入分享選單。複製連結或貼文文字，回網頁按「新增收藏」貼上；或用「捷徑」開啟 `<網頁網址>#text=<內容>`（一律要確認）。

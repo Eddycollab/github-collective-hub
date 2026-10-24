@@ -1,0 +1,12 @@
+{
+  "name": "github-collective-hub",
+  "private": true,
+  "description": "GitHub Collective Hub: capture page, GitHub sign-in and library API in one Node service (no dependencies).",
+  "license": "MIT",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node server/index.mjs",
+    "dev": "node --env-file=.env server/index.mjs",
+    "test": "node --test \"web/tests/*.test.mjs\" \"server/tests/*.test.mjs\""
+  }
+}

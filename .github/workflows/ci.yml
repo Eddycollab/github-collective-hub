@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    paths: ['action/**', 'web/**', '.github/**']
+    paths: ['action/**', 'web/**', 'server/**', '.github/**']
   pull_request:
 
 permissions:
@@ -21,6 +21,7 @@ jobs:
         with:
           node-version: 22
       - run: node --test 'web/tests/*.test.mjs'
+      - run: node --test 'server/tests/*.test.mjs'
 
   lint:
     runs-on: ubuntu-latest

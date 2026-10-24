@@ -34,7 +34,7 @@
                     library/*.md|json|svg、index.json ──► 收藏網頁（用你的 token 讀取）
 ```
 
-沒有伺服器、沒有資料庫。網頁是 GitHub Pages，分析跑在你自己的 Actions。
+沒有資料庫。網頁可以放在 GitHub Pages（每台裝置貼一次 token），也可以部署到 Railway（用 GitHub 登入，token 只在伺服器）；分析都跑在你自己的 Actions。
 
 ## 安裝
 
@@ -45,6 +45,8 @@
 3. 用 `library-template/` 建一個**私人**收藏庫，把 caller workflow 的 `uses:` 釘到你 repo 的 40 字元 commit SHA。
 4. 收藏庫 Actions secret：`CLAUDE_CODE_OAUTH_TOKEN`（`claude setup-token` 產生）。
 5. 每台裝置在網頁設定貼一次 fine-grained token（只限收藏庫，Contents: Read and write）。
+
+**想用 GitHub 登入、不在裝置上貼 token**：部署到 Railway，見 **[docs/railway.md](docs/railway.md)**。同一個服務提供網頁、GitHub OAuth 登入（只確認身分、只允許指定的 GitHub user ID）與收藏 API；收藏庫 token 只放在伺服器的環境變數。
 
 ## 隱私與安全
 
@@ -58,6 +60,7 @@
 
 - [docs/collective-plan.md](docs/collective-plan.md)：架構盤點、資料格式、相容性與遷移
 - [docs/setup.md](docs/setup.md)：安裝、部署、Secrets
+- [docs/railway.md](docs/railway.md)：Railway 部署與 GitHub 登入
 - [docs/specs/repobox.md](docs/specs/repobox.md)：上游 RepoBox 規格（安全設計的原始決策）
 
 ## 授權
