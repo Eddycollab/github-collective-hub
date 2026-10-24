@@ -298,6 +298,8 @@ jobs:
           rc=$?
           python3 "$S/claude_stream.py" "$RUNNER_TEMP"/stream-*.jsonl "$STAGE/run.json"
           SID=$(jq -r '.result.session_id // empty' "$STAGE/run.json")
+          # An API error (bad token, quota) would fail every resume the same way: skip the fix rounds.
+          [ -n "$(jq -r '.result.api_error_status // empty' "$STAGE/run.json")" ] && SID=
           if [ -n "$SID" ] && ! python3 "$S/validate.py" summary "$OUT/summary.json" "${TAXARG[@]}" "${VARG[@]}" >"$RUNNER_TEMP/summary-errs.txt"; then
             FIXS=$(python3 "$S/prompt.py" fix-summary --out "$OUT" --errors "$RUNNER_TEMP/summary-errs.txt" --item-type "$ITEM_TYPE")
             claude_run -p "$FIXS" --resume "$SID" --max-turns 10 > "$RUNNER_TEMP/stream-0s.jsonl"
@@ -339,6 +341,9 @@ jobs:
           extra=$(find "$OUT" -mindepth 1 ! -name summary.json ! -name diagram.svg -printf '%P\n')
           if [ -n "$extra" ]; then
             python3 "$S/status.py" "$STAGE/status.json" --status failed --error "unexpected files in out: $(echo "$extra" | head -5 | tr '\n' ' ')" "${common[@]}"
+          elif [ ! -f "$OUT/summary.json" ] && cerr=$(python3 "$S/claude_stream.py" --error "$STAGE/run.json"); then
+            # No summary because Claude itself failed: report Claude's error, not the missing file.
+            python3 "$S/status.py" "$STAGE/status.json" --status failed --error "$cerr" "${common[@]}"
           elif ! errs=$(python3 "$S/validate.py" summary "$OUT/summary.json" "${TAXARG[@]}"); then
             python3 "$S/status.py" "$STAGE/status.json" --status failed --error "summary: $(echo "$errs" | head -5 | tr '\n' ' ')" "${common[@]}"
           else

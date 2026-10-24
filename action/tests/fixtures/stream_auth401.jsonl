@@ -1,0 +1,2 @@
+{"type":"system","subtype":"init","session_id":"sid-401","model":"opus"}
+{"type":"result","subtype":"success","is_error":true,"num_turns":1,"duration_ms":2233,"session_id":"sid-401","terminal_reason":"api_error","api_error_status":401,"api_error_origin":"first_party","result":"Failed to authenticate. API Error: 401 Invalid bearer token"}

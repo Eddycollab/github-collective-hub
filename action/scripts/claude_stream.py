@@ -1,6 +1,7 @@
 """Summarize `claude -p --output-format stream-json --verbose` output into a run record.
 
 CLI: claude_stream.py <stream.jsonl> [<fix-round.jsonl> ...] <out.json>
+     claude_stream.py --error <run.json>   (prints why Claude failed; exit 1 when it did not)
 Streams are concatenated in order (the latest result event wins). Exit 2 when no stream has a
 result event (the record is still written).
 """
@@ -48,7 +49,33 @@ def summarize(lines: Iterable[str]) -> dict:
     }
 
 
+def claude_error(record: dict | None) -> str | None:
+    """One line naming why Claude itself failed, or None when its run ended normally."""
+    result = (record or {}).get("result")
+    if not isinstance(result, dict):
+        return "claude: no result event (the CLI crashed, was killed or never started)"
+    if not result.get("is_error"):
+        return None
+    status = result.get("api_error_status")
+    text = " ".join(str(result.get("result_text") or "").split())[:300]
+    msg = "claude: " + (text or str(result.get("terminal_reason") or result.get("subtype") or "error"))
+    if status in (401, 403):
+        msg += " (check the CLAUDE_CODE_OAUTH_TOKEN Actions secret; regenerate it with `claude setup-token`)"
+    return msg
+
+
 def main(argv: list[str]) -> int:
+    if argv[:1] == ["--error"] and len(argv) == 2:
+        # claude_stream.py --error <run.json>: print Claude's failure and exit 0, or exit 1 when none.
+        try:
+            record = json.loads(Path(argv[1]).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            record = None
+        msg = claude_error(record)
+        if msg is None:
+            return 1
+        print(msg)
+        return 0
     if len(argv) < 2:
         print("usage: claude_stream.py <stream.jsonl> [...] <out.json>", file=sys.stderr)
         return 1

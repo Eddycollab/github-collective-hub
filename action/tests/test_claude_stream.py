@@ -59,6 +59,36 @@ class ClaudeStreamTest(unittest.TestCase):
         self.assertEqual(p.returncode, 0)
         self.assertEqual(json.loads(out.read_text())["result"]["session_id"], "sid-1")
 
+    def _error_cli(self, record):
+        run = Path(tempfile.mkdtemp()) / "run.json"
+        if record is not None:
+            run.write_text(json.dumps(record), encoding="utf-8")
+        return subprocess.run([sys.executable, str(SCRIPTS / "claude_stream.py"), "--error", str(run)],
+                              capture_output=True, text=True, encoding="utf-8")
+
+    def test_auth_failure_is_reported_as_claude_error_not_missing_summary(self):
+        rec = claude_stream.summarize((FIXTURES / "stream_auth401.jsonl").read_text().splitlines())
+        msg = claude_stream.claude_error(rec)
+        self.assertIn("401 Invalid bearer token", msg)
+        self.assertIn("CLAUDE_CODE_OAUTH_TOKEN", msg)
+        self.assertNotIn("summary.json", msg)
+        p = self._error_cli(rec)
+        self.assertEqual(p.returncode, 0)
+        self.assertEqual(p.stdout.strip(), msg)
+
+    def test_successful_run_has_no_claude_error(self):
+        rec = claude_stream.summarize((FIXTURES / "stream_ok.jsonl").read_text().splitlines())
+        self.assertIsNone(claude_stream.claude_error(rec))
+        p = self._error_cli(rec)
+        self.assertEqual(p.returncode, 1)
+        self.assertEqual(p.stdout, "")
+
+    def test_missing_or_resultless_run_record_is_a_claude_error(self):
+        for record in (None, {"result": None}):
+            p = self._error_cli(record)
+            self.assertEqual(p.returncode, 0)
+            self.assertIn("no result event", p.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
